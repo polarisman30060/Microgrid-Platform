@@ -2,11 +2,12 @@
 
 ## Purpose
 
-The Battery Node provides a standardized energy storage interface between a battery system and the 96VDC Energy Bus.
+The Battery Node provides a standardized energy storage interface between a battery system and the 96VDC Energy Bus. Internally, it coordinates energy storage, cell-level protection, and bidirectional power conversion as a single unified network node.
 
 ## Responsibilities
 
 - Exchange energy with the 96VDC Energy Bus
+- Supply un-interruptible control power to the 30V 50kHz Common Auxiliary Power Bus
 - Protect the connected battery system
 - Control battery charging and discharging
 - Determine and report battery operating limits
@@ -21,6 +22,7 @@ The Battery Node provides a standardized energy storage interface between a batt
 ## Interfaces
 
 - 96VDC Energy Bus
+- 30V 50kHz Common Auxiliary Power Bus
 - Microgrid CAN Network
 
 ## Inputs
@@ -31,6 +33,7 @@ The Battery Node provides a standardized energy storage interface between a batt
 ## Outputs
 
 - Energy to the 96VDC Energy Bus
+- Control power to the 30V 50kHz Common Auxiliary Power Bus
 - Battery operating limits to the Microgrid CAN Network
 - Battery state information to the Microgrid CAN Network
 

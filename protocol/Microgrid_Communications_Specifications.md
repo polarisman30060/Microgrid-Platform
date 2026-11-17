@@ -76,9 +76,7 @@ Addresses shall be grouped by node function.
 
 ## Node Identification
 
-All modules shall display their configured Node ID through the local user interface.
-
-The Node ID shall be visible without the use of external diagnostic equipment.
+Accessible modules shall display their configured Node ID through a local user interface (`1.3-inch` OLED display) so the Node ID is visible without external diagnostic equipment.
 
 The local interface should also provide access to:
 
@@ -86,6 +84,8 @@ The local interface should also provide access to:
 - Firmware Version
 - Communication Status
 - Module Serial Number
+
+**Exception (Inaccessible Per-Panel Solar MPPT Modules):** Per-panel Solar MPPT modules mounted in inaccessible outdoor locations omit local displays and buttons. These modules report their permanent Serial Number, configured Node ID, firmware version, and status remotely to the Coordinator web interface over CANbus.
 
 ## Duplicate Address Detection
 
@@ -101,7 +101,6 @@ Startup shall be inhibited if a Required node is involved in an address conflict
 
 The Supervisor shall not automatically reassign node addresses.
 
-
 ## Module Serial Numbers
 
 Each module shall contain a permanent unique serial number.
@@ -113,7 +112,6 @@ Serial numbers shall not be automatically regenerated.
 Node IDs may change through configuration.
 
 Serial numbers shall remain constant for the life of the module.
-
 
 ## Fault Authority
 
@@ -201,4 +199,3 @@ If Coordinator communications are lost:
 This behavior allows the system to preserve operation of critical loads while eliminating dependence on the Coordinator for safe operation.
 
 The loss of optimization shall not immediately result in loss of power.
-

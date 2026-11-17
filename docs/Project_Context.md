@@ -1,6 +1,6 @@
 # Project Context
-Version: 0.1
-Last Updated: 2026-11-16
+Version: 0.2
+Last Updated: 2026-11-17
 
 # Project Overview
 
@@ -17,11 +17,11 @@ Primary goals:
 
 # Core System Architecture
 
-The system is built around two primary DC buses.
+The system is built around two primary DC power buses and one un-interruptible auxiliary control lifeline.
 
 ## 96VDC Energy Bus
 
-The 96VDC bus is the primary energy bus.
+The 96VDC bus (`86.4V–105.6V`, `±5%` regulation) is the primary system energy bus.
 
 All energy sources and storage systems connect to this bus.
 
@@ -30,8 +30,8 @@ Examples:
 - Battery Nodes
 - Solar MPPT Nodes
 - Generator Nodes
-- Future Energy Sources
-- Future Energy Storage Technologies
+- Utility-Tie PFC Nodes
+- Future Energy Sources and Storage Technologies
 
 System Philosophy:
 
@@ -41,7 +41,7 @@ System Philosophy:
 
 The 380VDC bus exists solely as an inverter supply bus.
 
-The 380VDC bus is not intended for energy storage.
+The 380VDC bus is not intended for energy storage or direct energy source connection.
 
 The 380VDC bus is supplied exclusively through Boost Converter Nodes.
 
@@ -49,21 +49,26 @@ System Philosophy:
 
 380VDC Bus = Power Conversion Bus
 
-# Coordinator Philosophy
+## 30V 50kHz Common Auxiliary Power Bus
 
-The ESP32-S3 Supervisor acts as the System Coordinator.
+The 30V 50kHz bus provides un-interruptible control and Black Start power from Battery Nodes to all module controllers, contactors, and galvanic CAN isolators.
+
+System Philosophy:
+
+30V 50kHz Bus = Un-interruptible Control & Black Start Lifeline
+
+# Coordinator & Safety Philosophy
+
+The Waveshare ESP32-S3-Touch-LCD-7 Supervisor acts as the System Coordinator.
 
 Coordinator responsibilities:
 
-- Node Discovery
-- Startup Sequencing
-- Power Allocation
-- Battery Fleet Coordination
-- Load Balancing
-- HMI Functions
-- System Monitoring
+- Node Discovery & Startup Sequencing
+- Power Allocation & Battery Fleet Coordination
+- Multi-Module Load Balancing
+- Local Touchscreen HMI & Wi-Fi Web Server Monitoring
 
-The Coordinator does not own system safety.
+The Coordinator does not own system safety. Local module controllers retain autonomous authority to disconnect and enter protective states without Coordinator approval.
 
 System Philosophy:
 
@@ -71,158 +76,21 @@ Local Modules Own Safety
 
 Coordinator Owns Resource Allocation
 
-# Node Discovery
+# Network & Communications Reference
 
-Node addresses are manually assigned.
+All system-wide CAN 2.0B rules—including the 11-bit identifier standard, `0x100–0x8FF` node address blocks, `500 ms` heartbeat / `1500 ms` timeout rules, permanent serial numbers, duplicate address handling, and Coordinator-loss degraded mode behavior—are defined in `protocol/Microgrid_Communications_Specifications.md`.
 
-The Coordinator never assigns addresses.
+# Battery Architecture & DALY BMS Strategy
 
-Coordinator responsibilities:
+The Battery Node is the public battery-facing interface to the microgrid, internally partitioning into a Battery Pack, a COTS DALY BMS, and a Bidirectional Charger/Discharger Converter.
 
-- Discover Active Nodes
-- Verify Expected Nodes
-- Detect Missing Nodes
-- Detect Duplicate Node IDs
-
-Node Classification:
-
-- Required
-- Optional
-- Ignored
-
-Missing Required Nodes:
-
-- Startup inhibited
-
-Missing Optional Nodes:
-
-- Startup allowed
-- Warning displayed
-
-# CAN Communications
-
-Bus Type:
-
-- CAN 2.0B
-- Standard 11-bit IDs
-
-Dynamic addressing is not used.
-
-Heartbeat Interval:
-
-- 500 ms
-
-Offline Detection:
-
-- 3 missed heartbeats
-- 1500 ms timeout
-
-# Node Address Allocation
-
-0x100-0x1FF  Battery Nodes
-
-0x200-0x2FF  Solar Nodes
-
-0x300-0x3FF  Boost Nodes
-
-0x400-0x4FF  Inverter Nodes
-
-0x500-0x5FF  Grid Interface Nodes
-
-0x600-0x6FF  Generator Nodes
-
-0x700-0x7FF  Display Nodes
-
-0x800-0x8FF  Service/Test Nodes
-
-# Serial Numbers
-
-Every module contains:
-
-- Permanent Serial Number
-- Configurable Node Address
-
-Node Address:
-
-- Network Location
-
-Serial Number:
-
-- Hardware Identity
-
-Serial Numbers never change.
-
-Node IDs may be reconfigured.
-
-# Duplicate Address Handling
-
-Duplicate node addresses are not permitted.
-
-The Coordinator shall:
-
-- Detect duplicates
-- Report duplicates
-- Identify affected serial numbers
-
-The Coordinator shall never automatically reassign addresses.
-
-# Battery Architecture
-
-The Battery Node is the public battery-facing interface to the microgrid.
-
-A Battery Node may contain:
-
-- Energy Storage
-- Battery Management System (BMS)
-- Bidirectional DC/DC Converter
-- Local Controller
-- CAN Interface
-
-The Coordinator communicates with the Battery Node.
-
-The BMS is considered an internal subsystem.
-
-# Battery Chemistry Independence
-
-Supported battery technologies may include:
-
-- Flooded Lead Acid
-- AGM
-- Gel
-- LiFePO4
-- Lithium-Ion
-- Sodium-Ion
-- Future Technologies
-
-The Coordinator shall not require knowledge of battery chemistry.
-
-# Battery Interface Philosophy
-
-Every Battery Node should expose:
-
-- State of Charge (SOC)
-- State of Health (SOH)
-- Pack Voltage
-- Pack Current
-- Available Charge Power
-- Available Discharge Power
-- Availability State
-- Warning State
-- Fault State
-
-The Battery Node abstracts battery chemistry and BMS implementation.
+- **Chemistry Independence:** Supports Flooded/AGM/Gel Lead-Acid, LiFePO4, Lithium-Ion, Sodium-Ion, and future chemistries without exposing internal details to the Coordinator.
+- **DALY BMS Reference Implementation:** COTS DALY BMS units handle initial cell-level monitoring and protection, communicating strictly with the local Charger/Discharger controller using native DALY communications.
+- **Abstraction Boundary:** The DALY protocol is internal only and is not the system standard. The local converter translates telemetry onto the unified Microgrid CAN Network.
 
 # Storage Fleet Philosophy
 
-The Coordinator controls storage at the fleet level.
-
-Battery fleet states:
-
-- CHARGING
-- DISCHARGING
-- IDLE
-
-The Coordinator should not intentionally command one Battery Node to charge while another Battery Node is discharging.
+The Coordinator controls storage at the fleet level (`CHARGING`, `DISCHARGING`, `IDLE`) and shall not intentionally command one Battery Node to charge while another Battery Node is discharging.
 
 Energy flow priority:
 
@@ -231,30 +99,13 @@ Energy flow priority:
 3. Storage supplies deficits.
 4. Generator/Grid may support charging when desired.
 
-# DALY BMS Strategy
-
-DALY BMS devices are the initial reference implementation.
-
-The DALY protocol is not the system standard.
-
-The system standard is the Battery Node Interface.
-
-Future battery technologies shall be integrated through the Battery Node abstraction layer.
-
 # Open Items
 
-- Complete Battery Node Definition
-- Define Boost Node
-- Define Solar Node
-- Define Inverter Node
-- Define Generator Node
-- Define Grid Interface Node
-- Define Coordinator State Machine
-- Define Load Sharing Protocol
-- Define Battery Fleet Management
-- Define Startup Sequence
-- Define Degraded Mode Behavior
-- Define Fault Message Formats
+- Complete remaining Node Definitions in `architecture/nodes/` (Solar, Inverter, Generator, Grid Interface, Coordinator, Display)
+- Define Coordinator State Machine (`architecture/System_State_MAchine.md`)
+- Define CAN Message Payloads (`protocol/CAN_Messages_Definitions.md`)
+- Define Fault Codes (`protocol/Fault_Codes.md`)
+- Define Load Sharing, Battery Fleet Management, and Startup Sequences
 
 # Development Environment
 
@@ -270,11 +121,12 @@ Development Tools:
 - PlatformIO
 - ESP-IDF
 - STM32CubeIDE
+- EasyEDA Pro
 
 Target Supervisor Hardware:
 
-- Waveshare ESP32-S3-TOUCH-LCD-7 Rev 1.2
+- Waveshare ESP32-S3-Touch-LCD-7 Rev 1.2
 
 Target Module Controller:
 
-- STM32G474QE
+- STM32G474QE (and compact STM32G474 packages for per-panel Solar MPPT nodes)
