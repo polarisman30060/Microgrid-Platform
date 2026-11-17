@@ -93,3 +93,32 @@ The Battery Node shall not require direct knowledge of:
 - Solar Generation Control
 
 These functions remain the responsibility of other system nodes and the Coordinator.
+
+
+## Boost Node
+
+Purpose:
+
+The Boost Node transfers energy from the 96VDC Energy Bus to the 380VDC Inverter Bus.
+
+The Boost Node is responsible for maintaining the 380VDC bus using energy available on the 96VDC bus.
+
+### Responsibilities
+
+The Boost Node is responsible for:
+
+- 96VDC Bus Monitoring
+- 380VDC Bus Monitoring
+- DC/DC Power Conversion
+- High Voltage Bus Regulation
+- Current Measurement
+- Temperature Monitoring
+- Local Fault Detection
+- Local Fault Protection
+- Communication with the Coordinator
+
+The Boost Node exchanges energy between the 96VDC Energy Bus and the 380VDC Inverter Bus.
+
+The Boost Node does not directly control battery charging, solar production, generator operation, or inverter operation.
+
+These functions remain the responsibility of their respective nodes and the Coordinator.
