@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "web_server.c"
+        "waveshare_rgb_lcd_port.c"
+        "wifi_station.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        esp_http_server)
