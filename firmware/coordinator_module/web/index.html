@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microgrid Internet Orchestration Center</title>
+    <style>
+        :root {
+            --bg-dark: #0a0a0c;
+            --card-bg: #141418;
+            --border-color: #26262b;
+            --text-main: #f4f4f7;
+            --text-muted: #8e8e93;
+            --solar-color: #eab308;
+            --gen-color: #f97316;
+            --grid-color: #06b6d4;
+            --bus-color: #10b981;
+            --bat-color: #3b82f6;
+            --rail-color: #a855f7;
+            --ac-color: #ec4899;
+            --trip-color: #ef4444;
+            --modal-bg: rgba(0, 0, 0, 0.85);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); padding: 25px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 15px;
+            height: 60px;
+        }
+
+        h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.5px; }
+        .sub-header { color: var(--text-muted); font-size: 0.8rem; margin-top: 2px; }
+
+        .header-actions { display: flex; align-items: center; gap: 15px; }
+        
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .status-online { background: rgba(16, 185, 129, 0.15); color: var(--bus-color); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .status-offline { background: rgba(239, 68, 68, 0.15); color: var(--trip-color); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        .btn-setup {
+            background: #1e1e24;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-setup:hover:not(:disabled) { background: #2a2a35; border-color: var(--text-muted); }
+        .btn-setup:disabled { cursor: not-allowed; opacity: 0.55; }
+
+        /* Full Screen Scalable Grid Topology Workspace */
+        .workspace {
+            display: grid;
+            grid-template-columns: 200px 1fr 200px 1fr 200px;
+            grid-template-rows: 1fr 150px;
+            gap: 10px;
+            flex: 1;
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        /* SVG Vector Bus Overlap Mechanics */
+        .svg-bus-plane {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .bus-line { fill: none; stroke-linecap: round; }
+
+        .column-pane { display: flex; flex-direction: column; justify-content: center; gap: 15px; z-index: 2; position: relative; }
+        
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+            width: 100%;
+            cursor: default;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        
+        .card-header-title { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px; }
+        .datapoint { font-family: monospace; font-size: 1.4rem; font-weight: 600; margin-bottom: 2px; }
+        .unit { font-size: 0.9rem; color: var(--text-muted); font-weight: 400; margin-left: 2px; }
+        .label-desc { font-size: 0.75rem; color: var(--text-muted); }
+
+        /* Specific Panes Configurations */
+        #pane-inputs { grid-column: 1; }
+        #pane-bus-96 { grid-column: 2; display: flex; justify-content: center; align-items: center; }
+        #pane-center { grid-column: 3; }
+        #pane-bus-380 { grid-column: 4; display: flex; justify-content: center; align-items: center; }
+        #pane-outputs { grid-column: 5; }
+        #pane-storage { grid-column: 2 / span 3; grid-row: 2; display: flex; justify-content: center; align-items: flex-start; padding-top: 20px; }
+
+        .bus-label-box {
+            background: #0f0f12;
+            border: 1px solid #1a1a22;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-align: center;
+        }
+
+        /* Control Drawer Footer Station */
+        .footer-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 10px;
+        }
+        
+        .power-station-buttons { display: flex; gap: 12px; }
+        .btn-ctl {
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            color: #fff;
+            transition: opacity 0.2s;
+        }
+        .btn-start { background-color: var(--bus-color); }
+        .btn-stop { background-color: var(--trip-color); }
+        .btn-ctl:hover { opacity: 0.9; }
+        .btn-ctl:disabled { cursor: not-allowed; opacity: 0.45; }
+
+        /* Conditional Visibility Filters */
+        .hide-node { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>Microgrid Internet Orchestration Center</h1>
+            <div class="sub-header">Dynamic Matrix Telemetry Plane — Scaling Topology</div>
+        </div>
+        <div class="header-actions">
+            <div id="comms-status" class="badge status-offline">Telemetry Unavailable</div>
+            <button class="btn-setup" type="button" disabled>⚙ SETUP</button>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <!-- SVG Canvas Plane mapping relative paths -->
+        <svg class="svg-bus-plane" id="topology-canvas"></svg>
+
+        <!-- COLUMN 1: INTERACTIVE DYNAMIC GENERATION SOURCES -->
+        <div class="column-pane" id="pane-inputs">
+            <div class="card" id="node-solar">
+                <div class="card-header-title">☀ Solar Array</div>
+                <div class="datapoint" id="txt-solar-w">--<span class="unit">kW</span></div>
+                <div class="label-desc" id="txt-solar-raw">No telemetry available</div>
+            </div>
+            <div class="card" id="node-gen">
+                <div class="card-header-title">⚙ Diesel Gen</div>
+                <div class="datapoint" id="txt-gen-w">--<span class="unit">kW</span></div>
+                <div class="label-desc" id="txt-gen-raw">No telemetry available</div>
+            </div>
+            <div class="card" id="node-grid">
+                <div class="card-header-title">⚡ Utility Grid</div>
+                <div class="datapoint" id="txt-grid-w">--<span class="unit">kW</span></div>
+                <div class="label-desc" id="txt-grid-raw">No telemetry available</div>
+            </div>
+        </div>
+
+        <!-- COLUMN 2: VERTICAL 96V BACKBONE LABEL AREA -->
+        <div class="column-pane" id="pane-bus-96">
+            <div class="bus-label-box" id="node-label-96">96VDC Bus</div>
+        </div>
+
+        <!-- COLUMN 3: THE 66% MACRO 96V➔380V BOOST STATION -->
+        <div class="column-pane" id="pane-center">
+            <div class="card" id="node-boost-macro" style="border-color: var(--rail-color);">
+                <div class="card-header-title" style="color: var(--rail-color);">96V ➔ 380V Converter</div>
+                <div class="datapoint" id="txt-boost-w">--<span class="unit">kW</span></div>
+                <div class="label-desc" id="txt-boost-raw">No telemetry available</div>
+            </div>
+        </div>
+
+        <!-- COLUMN 4: VERTICAL 380V RAIL LABEL AREA -->
+        <div class="column-pane" id="pane-bus-380">
+            <div class="bus-label-box" id="node-label-380">380VDC Bus</div>
+        </div>
+
+        <!-- COLUMN 5: TERMINAL OUTPUT INVERTER CHASSIS HOOKS -->
+        <div class="column-pane" id="pane-outputs">
+            <div class="card" id="node-inv120">
+                <div class="card-header-title">🏠 120VAC Inverter</div>
+                <div class="datapoint" id="txt-inv120-w">--<span class="unit">kW</span></div>
+                <div class="label-desc" id="txt-inv120-raw">No telemetry available</div>
+            </div>
+            <div class="card" id="node-inv240">
+                <div class="card-header-title">🏭 240VAC Split-Phase</div>
+                <div class="datapoint" id="txt-inv240-w">--<span class="unit">kW</span></div>
+                <div class="label-desc" id="txt-inv240-raw">No telemetry available</div>
+            </div>
+        </div>
+
+        <!-- BOTTOM CENTER ROW: BATTERY STORAGE HOOK DROP -->
+        <div id="pane-storage">
+            <div class="card" id="node-storage-array" style="width: 320px; border-color: var(--bat-color);">
+                <div class="card-header-title" style="color: var(--bat-color);">🔋 Storage Management Array</div>
+                <div class="datapoint" id="txt-bat-w">--<span class="unit">kW</span></div>
+                <div class="label-desc" id="txt-bat-raw">No telemetry available</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTROL STAGE DRAWER FOOTER PANEL -->
+    <div class="footer-controls">
+        <div class="power-station-buttons">
+            <button class="btn-ctl btn-start" type="button" disabled>START</button>
+            <button class="btn-ctl btn-stop" type="button" disabled>STOP</button>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-family: monospace;">Controls unavailable until coordinator control is implemented.</div>
+    </div>
+
+    <script>
+        // Static topology only; telemetry and control are not connected yet.
+        let presence = { solar: true, gen: true, grid: true, boost: true, inv120: true, inv240: true, storage: true };
+
+        window.addEventListener('load', () => {
+            initGeometryTraces();
+            window.addEventListener('resize', initGeometryTraces);
+        });
+
+        function initGeometryTraces() {
+            const svg = document.getElementById('topology-canvas');
+            svg.innerHTML = ''; // Fresh render loop
+
+            const sNode = document.getElementById('node-solar');
+            const gNode = document.getElementById('node-gen');
+            const grNode = document.getElementById('node-grid');
+            const label96 = document.getElementById('node-label-96');
+            const bMacro = document.getElementById('node-boost-macro');
+            const label380 = document.getElementById('node-label-380');
+            const i120 = document.getElementById('node-inv120');
+            const i240 = document.getElementById('node-inv240');
+            const bStorage = document.getElementById('node-storage-array');
+
+            const bounds = svg.getBoundingClientRect();
+
+            // Coordinate getters helper
+            const getRCenter = el => {
+                let r = el.getBoundingClientRect();
+                return { x: r.right - bounds.left, y: r.top - bounds.top + (r.height/2) };
+            };
+            const getLCenter = el => {
+                let r = el.getBoundingClientRect();
+                return { x: r.left - bounds.left, y: r.top - bounds.top + (r.height/2) };
+            };
+            const getBCenter = el => {
+                let r = el.getBoundingClientRect();
+                return { x: r.left - bounds.left + (r.width/2), y: r.bottom - bounds.top };
+            };
+            const getTCenter = el => {
+                let r = el.getBoundingClientRect();
+                return { x: r.left - bounds.left + (r.width/2), y: r.top - bounds.top };
+            };
+
+            let v96X = label96.getBoundingClientRect().left - bounds.left + 15;
+            let v380X = label380.getBoundingClientRect().left - bounds.left + 15;
+
+            // 1. Draw Left Hand Inputs merging to 96V Bus
+            let activeInputsY = [];
+            if (presence.solar) activeInputsY.push(getRCenter(sNode));
+            if (presence.gen) activeInputsY.push(getRCenter(gNode));
+            if (presence.grid) activeInputsY.push(getRCenter(grNode));
+
+            if (activeInputsY.length > 0) {
+                activeInputsY.forEach(pt => drawLine(pt.x, pt.y, v96X, pt.y, '#33333e', 3));
+                let minY = Math.min(...activeInputsY.map(p => p.y));
+                let maxY = Math.max(...activeInputsY.map(p => p.y));
+                drawLine(v96X, minY, v96X, maxY + 20, varColor('--bus-color'), 6); // 96V Vertical
+            }
+
+            // 2. Draw 69V Horizontal Tap Rail to Boost Module
+            let bInput = getLCenter(bMacro);
+            let bOutput = getRCenter(bMacro);
+            drawLine(v96X, bInput.y, bInput.x, bInput.y, varColor('--bus-color'), 4); // Solid 69V Horizontal Trace
+
+            // 3. Draw Battery Tap exactly halfway between 96V vertical bus and Boost graphic input edge
+            let halfwayX = v96X + ((bInput.x - v96X) / 2);
+            let storageTop = getTCenter(bStorage);
+            drawLine(halfwayX, bInput.y, halfwayX, storageTop.y, varColor('--bat-color'), 4); // Dropdown Line
+            drawLine(halfwayX, storageTop.y, storageTop.x, storageTop.y, varColor('--bat-color'), 4); // Link across
+
+            // 4. Draw Flush 380V Rail to right-hand outverters
+            drawLine(bOutput.x, bOutput.y, v380X, bOutput.y, varColor('--rail-color'), 4); // Touch seal
+            
+            let activeOutsY = [];
+            if (presence.inv120) activeOutsY.push(getLCenter(i120));
+            if (presence.inv240) activeOutsY.push(getLCenter(i240));
+
+            if (activeOutsY.length > 0) {
+                let minOutY = Math.min(...activeOutsY.map(p => p.y));
+                let maxOutY = Math.max(...activeOutsY.map(p => p.y));
+                drawLine(v380X, minOutY - 10, v380X, maxOutY + 10, varColor('--rail-color'), 6); // 380V Vertical
+                activeOutsY.forEach(pt => drawLine(v380X, pt.y, pt.x, pt.y, '#33333e', 3));
+            }
+        }
+
+        function drawLine(x1, y1, x2, y2, color, width) {
+            const svg = document.getElementById('topology-canvas');
+            let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+            line.setAttribute('stroke', color); line.setAttribute('stroke-width', width);
+            line.setAttribute('class', 'bus-line');
+            svg.appendChild(line);
+        }
+
+        function varColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+    </script>
+</body>
+</html>

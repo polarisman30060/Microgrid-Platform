@@ -1,10 +1,14 @@
 idf_component_register(
     SRCS
         "main.c"
+        "can_bus.c"
         "web_server.c"
         "waveshare_rgb_lcd_port.c"
         "wifi_station.c"
+        "wifi_settings.c"
     INCLUDE_DIRS
         "."
     REQUIRES
-        esp_http_server)
+        esp_http_server
+        esp_driver_twai
+        spiffs)

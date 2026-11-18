@@ -24,9 +24,8 @@ Architecture Development
 
 ## Documentation
 
-See:
-
-/architecture
-/protocol
-/hardware
-/firmware
+- [Software design constraints](docs/Software_Design_Constraints.md)
+- [Architecture](architecture/)
+- [Protocol](protocol/)
+- [Hardware](hardware/)
+- [Firmware](firmware/)

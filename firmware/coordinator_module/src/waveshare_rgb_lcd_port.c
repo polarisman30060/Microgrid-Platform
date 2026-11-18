@@ -107,12 +107,13 @@ static esp_err_t init_touch(esp_lcd_touch_handle_t *touch_handle)
 static esp_err_t enable_backlight(void)
 {
     const uint8_t output_mode = 0x01;
-    const uint8_t backlight_on = 0x1E;
+    const uint8_t backlight_on_and_can_selected = 0x3E;
 
     ESP_RETURN_ON_ERROR(
         i2c_master_transmit(s_ch422g_mode, &output_mode, 1, 1000),
         TAG, "CH422G output mode setup failed");
-    return i2c_master_transmit(s_ch422g_output, &backlight_on, 1, 1000);
+    return i2c_master_transmit(
+        s_ch422g_output, &backlight_on_and_can_selected, 1, 1000);
 }
 
 esp_err_t waveshare_rgb_lcd_init(
