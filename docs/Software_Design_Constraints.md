@@ -61,13 +61,20 @@ Each power module retains authority over its local control loops, hardware trips
 
 ## Communications Contract Gate
 
-The CAN application contract must be reconciled before implementing production discovery, watchdog, or control behavior. `docs/Project_Context.md` names `protocol/Microgrid_Communications_Specifications.md` as the system-wide reference, but the current documents disagree:
+The current Coordinator implementation transmits `COORD_HEARTBEAT` and decodes the proposed Battery 0 identity, heartbeat, and telemetry frames. Bidirectional CAN with a PC program emulating ordinary module nodes through the Waveshare USB-CAN-A is the development requirement; the Coordinator must not require a simulator-specific mode or protocol. Battery command transmission and the PC simulator remain unimplemented. The current project-wide timing target is a `100 ms` node/coordinator heartbeat and a `500 ms` timeout; those timings are not a substitute for completing the protocol review.
 
-- Heartbeat period and offline timeout are `500 ms` and `1500 ms` in the communications specification, but `100 ms` and `300 ms` in `protocol/CAN_Messages_Definitions.md` and `architecture/Coordinator_Functions.md`.
-- Node address ranges differ between the communications specification and the CAN message definitions.
-- The message definitions do not yet provide all identity, discovery, acknowledgement, and configuration payloads needed by the documented Coordinator responsibilities.
+The following protocol questions remain implementation blockers:
 
-Until these points are resolved and the authoritative documents are updated, firmware shall not encode the conflicting values as settled system behavior. CAN transport bring-up may be developed independently, but application-level decisions must be traceable to the reconciled contract.
+- `EMERGENCY_FAULT` uses `0x001 + Node_Type`, so nodes of the same type share an identifier and may attempt simultaneous transmission. Define unique arbitration identifiers for faulting nodes.
+- `CMD_ACK` uses `0x740 + GlobalNodeID`, which overlaps the fixed `0x780` remote-provisioning identifier for some node IDs.
+- Define how an unconfigured node announces its identity before it has a `GlobalNodeID`, and clarify which node-ID values are valid for every node type.
+- Specify whether a malformed command is acknowledged or dropped; the current CRC-error rule says both.
+- Define command acknowledgement/retry and duplicate-command behavior before enabling state-changing commands.
+- Reconcile payload definitions with the intended telemetry and command semantics, then publish one reviewed, versioned protocol as the implementation source of truth.
+
+Until these items are resolved, firmware may develop and test CAN transport independently, but shall not transmit application commands or treat illustrative protocol examples as settled safety behavior. See [Coordinator CAN implementation guide](Coordinator_CAN_Implementation.md).
+
+The first simulator integration shall use the ordinary Battery Node identity, heartbeat, telemetry, command, and acknowledgement messages. Review and freeze that single-node profile before implementing it. The PC simulation shall never actuate physical power hardware.
 
 ## Implementation Constraints
 
@@ -76,7 +83,7 @@ Until these points are resolved and the authoritative documents are updated, fir
 - CPU 1 logic shall not call LVGL or perform blocking network, display, or storage work. Cross-core exchange shall use bounded queues or other synchronization with defined ownership.
 - ESP-IDF and hardware system services may still use either core as required; the affinity rule applies to application workloads and configured network/display tasks.
 - Hardware initialization shall respect board-specific shared-pin routing, including selecting the CAN path before using the TWAI interface, as specified by `hardware/System_Coordinator_Hardware.md`.
-- Initial CAN bring-up uses a raw-frame receiver at 500 kbit/s on CPU 1. The controller acknowledges valid bus frames but the application sends no CAN messages; application-level decoding remains disabled until the communications contract is reconciled.
+- CAN runs at 500 kbit/s on CPU 1. Coordinator heartbeat TX and Battery 0 RX/decoding are implemented as the first firmware slice. The next end-to-end milestone is a PC program emulating the Battery Node over the Waveshare USB-CAN-A. The Coordinator shall use the same node protocol as it would with hardware; the PC must not control real power hardware.
 - Wi-Fi credentials entered through the LCD shall be persisted only after a successful connection. Passwords shall be masked on screen and must not be logged.
 - Production deployment shall define NVS/flash encryption for stored Wi-Fi credentials before the device is exposed to physical access.
 - The LCD shall report Wi-Fi connection state and the web-server address so initial setup can continue from a browser on the same network.
@@ -91,11 +98,11 @@ Until these points are resolved and the authoritative documents are updated, fir
 - Build the firmware for its configured target after changes to the Coordinator project.
 - Test state transitions, startup interlocks, timeout handling, malformed or stale inputs, and failure paths without requiring live power hardware.
 - Verify CAN payload encoding and decoding against the reconciled protocol definitions, including boundary values and invalid frames.
-- Hardware-in-the-loop tests are required before enabling commands that can energize buses, close contactors, or reset protective trips.
+- Commands may be exercised against the PC module emulator only on an isolated communications bench with no power hardware attached. Hardware-in-the-loop tests and safety review are required before using command-capable Coordinator firmware on a real power system.
 
 ## Open Questions
 
-- Reconcile CAN heartbeat periods, offline thresholds, address allocation, and discovery/identity payloads across the protocol and architecture documents.
+- Resolve and approve unique emergency identifiers, ACK/provisioning identifier overlap, unconfigured-node identity, and malformed-command handling before implementing the CAN application layer.
 - Define the acknowledged command lifecycle, including retries, duplicate-command handling, and safe behavior when acknowledgements are lost.
 - Define the persistence format, configuration migration policy, and behavior when the SD card is absent or fails.
 - Define operator authorization and audit requirements for remote controls and fault resets.

@@ -1,7 +1,7 @@
 # Microgrid Communications Specification
 
 Version: 1.0
-Status: Active Baseline
+Status: Draft - not approved for firmware application-layer implementation
 
 ## 1. Physical & Data-Link Layer
 
@@ -29,7 +29,10 @@ CAN identifiers are allocated by **message priority and function** so critical h
 
 ## 3. Timing & Watchdog Hierarchy
 
-Because the `96 VDC` Energy Bus and `380 VDC` Inverter Bus incorporate large bulk electrolytic and film capacitor banks, fast cycle-by-cycle current loops (` 500 ms`) shall never create an unsafe operating condition.
+Node heartbeats are transmitted every `100 ms`. A node that misses the Coordinator heartbeat for more than `500 ms` enters its locally defined degraded behavior. The frame format and detailed timing rules are specified in [`CAN_Messages_Definitions.md`](./CAN_Messages_Definitions.md).
+
+CAN is supervisory communication only. Fast cycle-by-cycle current loops and hardware fault protection shall remain local to each power module and shall not depend on CAN timing or availability. Bulk bus capacitance does not replace local control or protection.
+
 - Upon Coordinator timeout, active nodes transition to `DEGRADED_AUTONOMOUS` mode using their last valid operating limits:
   - **Battery Nodes:** Hold `96.0 VDC` Energy Bus regulation within autonomous V-I droop bounds; keep `30V 50kHz` Auxiliary Lifeline active.
   - **Solar MPPT Nodes:** Continue autonomous MPPT harvesting with local `96 VDC` overvoltage curtailment (`<= 100.8 VDC`).

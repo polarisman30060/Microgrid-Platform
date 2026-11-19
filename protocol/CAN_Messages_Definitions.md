@@ -1,7 +1,7 @@
 # CAN Bus Message & Protocol Specification
 
 Version: 1.0
-Status: Active Baseline
+Status: Draft - not approved for firmware application-layer implementation
 
 ## 1. Physical & Data-Link Layer
 
@@ -240,3 +240,14 @@ Sent by Coordinator during commissioning to assign a new `Instance_ID` to an unc
 2. **Balancing Token Timeout (`100 ms`):** If an active Boost or Inverter node misses `CMD_NODE_CONTROL` balancing tokens for `> 100 ms` while `COORD_HEARTBEAT` is still active, it holds its last valid current setpoint and raises Bit 2 (`Sensor/Token Drift`) in `NODE_HEARTBEAT` Byte 3.
 3. **Command Integrity (`CRC8`):** Any `CMD_NODE_CONTROL` (`0x120+`) or `CMD_REMOTE_PROVISION` (`0x780`) frame failing its Byte 7 `CRC8` check is silently dropped, increments the local `CAN_RX_CRC_Error` counter, and returns `Ack_Status = 0x04` on `CMD_ACK` (`0x740+`).
 4. **CAN Bus-Off Recovery:** All nodes must enable automatic hardware/software Bus-Off recovery with a `100 ms` backoff retry timer so transient EMI spikes never permanently deafen a power module.
+
+## 5. Unresolved Items Before Implementation
+
+- Review and freeze a one-Battery Node profile for PC-to-Coordinator simulation using ordinary node frames; do not introduce simulator-only CAN identifiers.
+- `EMERGENCY_FAULT` currently uses `0x001 + Node_Type`; multiple nodes of the same type therefore share an arbitration identifier. Define unique IDs that preserve the required fault priority.
+- `CMD_ACK` currently uses `0x740 + GlobalNodeID`, which overlaps fixed provisioning ID `0x780` for some node IDs.
+- Define the identity/discovery identifier and payload for a node that has not yet been assigned a `GlobalNodeID`, and confirm the valid ID range for each node type.
+- The CRC-error rule says to silently drop an invalid command and also return an error acknowledgement; choose one behavior and define how it can be addressed safely.
+- Define ACK correlation, retries, duplicate-command handling, and protocol version compatibility.
+
+Do not treat unresolved frame assignments or illustrative examples as approved command behavior.

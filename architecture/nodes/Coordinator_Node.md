@@ -59,8 +59,8 @@ The Coordinator Node serves as the central supervisory intelligence of the micro
 
 ## Coordinator Interaction
 
-- Acts as the supervisory master polling and orchestrating all functional nodes (`0x100–0x8FF`)
-- Monitors `100 ms` node heartbeats and flags nodes offline after `500 ms` (3 missed heartbeats)
+- Supervises functional nodes through the shared 11-bit CAN network; nodes broadcast telemetry and heartbeats
+- Monitors `100 ms` node heartbeats and flags nodes offline after `500 ms` (5 missed heartbeats)
 
 ## Fault Conditions
 

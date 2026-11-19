@@ -162,6 +162,28 @@ static void wifi_banner_timer(lv_timer_t *timer)
     }
 }
 
+static const char *battery_state_name(uint8_t state)
+{
+    switch (state) {
+    case 0:
+        return "OFF";
+    case 1:
+        return "STARTUP";
+    case 2:
+        return "READY";
+    case 3:
+        return "RUNNING";
+    case 4:
+        return "DEGRADED";
+    case 5:
+        return "FAULT";
+    case 6:
+        return "LOCKOUT";
+    default:
+        return "UNKNOWN";
+    }
+}
+
 static void can_status_timer(lv_timer_t *timer)
 {
     (void)timer;
@@ -179,19 +201,68 @@ static void can_status_timer(lv_timer_t *timer)
         return;
     }
 
-    if (status.received_frames == 0) {
-        lv_label_set_text(s_can_status_label, "CAN READY");
-        lv_obj_set_style_text_color(s_can_status_label, lv_color_hex(COLOR_GRID), LV_PART_MAIN);
+    if (status.bus_off) {
+        lv_label_set_text(s_can_status_label, "CAN BUS-OFF");
+        lv_obj_set_style_text_color(s_can_status_label, lv_color_hex(COLOR_TRIP), LV_PART_MAIN);
         lv_obj_set_style_border_color(
-            lv_obj_get_parent(s_can_status_label), lv_color_hex(COLOR_GRID), LV_PART_MAIN);
-        lv_label_set_text(s_can_frame_label, "CAN ready at 500 kbps; waiting for frames");
+            lv_obj_get_parent(s_can_status_label), lv_color_hex(COLOR_TRIP), LV_PART_MAIN);
+        lv_label_set_text_fmt(
+            s_can_frame_label, "TX failures %lu | RX %lu | dropped %lu",
+            (unsigned long)status.tx_failures,
+            (unsigned long)status.received_frames,
+            (unsigned long)status.dropped_frames);
         return;
     }
 
-    lv_label_set_text(s_can_status_label, "CAN RX");
-    lv_obj_set_style_text_color(s_can_status_label, lv_color_hex(COLOR_BUS), LV_PART_MAIN);
+    if (status.battery_online) {
+        lv_label_set_text_fmt(
+            s_can_status_label, "BAT0 %s", battery_state_name(status.battery_local_state));
+        lv_obj_set_style_text_color(s_can_status_label, lv_color_hex(COLOR_BUS), LV_PART_MAIN);
+        lv_obj_set_style_border_color(
+            lv_obj_get_parent(s_can_status_label), lv_color_hex(COLOR_BUS), LV_PART_MAIN);
+
+        if (status.battery_fast_telemetry_valid && !status.battery_fast_telemetry_stale) {
+            lv_label_set_text_fmt(
+                s_can_frame_label,
+                "SOC %.1f%% | BUS %.2f V | PACK %.2f V | I %.1f A | TX %lu RX %lu",
+                (double)status.battery_soc_percent,
+                (double)status.battery_bus_voltage_v,
+                (double)status.battery_pack_voltage_v,
+                (double)status.battery_current_a,
+                (unsigned long)status.transmitted_frames,
+                (unsigned long)status.received_frames);
+        } else {
+            lv_label_set_text_fmt(
+                s_can_frame_label, "BAT0 online | telemetry stale | TX %lu RX %lu",
+                (unsigned long)status.transmitted_frames,
+                (unsigned long)status.received_frames);
+        }
+        return;
+    }
+
+    const char *offline_status = "CAN TX";
+    uint32_t offline_color = COLOR_GRID;
+    if (status.coordinator_state == APP_COORD_STATE_FAULT) {
+        offline_status = "SYS FAULT";
+        offline_color = COLOR_TRIP;
+    } else if (status.coordinator_state == APP_COORD_STATE_DEGRADED) {
+        offline_status = "BAT0 OFFLINE";
+        offline_color = COLOR_TRIP;
+    } else if (status.battery_identity_valid) {
+        offline_status = "BAT0 WAIT";
+    }
+    lv_label_set_text(s_can_status_label, offline_status);
+    lv_obj_set_style_text_color(s_can_status_label, lv_color_hex(offline_color), LV_PART_MAIN);
     lv_obj_set_style_border_color(
-        lv_obj_get_parent(s_can_status_label), lv_color_hex(COLOR_BUS), LV_PART_MAIN);
+        lv_obj_get_parent(s_can_status_label), lv_color_hex(offline_color), LV_PART_MAIN);
+
+    if (status.received_frames == 0) {
+        lv_label_set_text_fmt(
+            s_can_frame_label, "Battery 0 not online | TX attempts %lu | invalid %lu",
+            (unsigned long)status.tx_attempts,
+            (unsigned long)status.invalid_frames);
+        return;
+    }
 
     char frame_text[120];
     uint64_t age_ms = ((uint64_t)esp_timer_get_time() - status.last_received_us) / 1000;

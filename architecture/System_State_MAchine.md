@@ -31,7 +31,7 @@ This document defines the supervisory state machine executed by the Coordinator 
 | :--- | :--- | :--- |
 | **OFF** | Unpowered state prior to `30V 50kHz` auxiliary bus energization. | Exits to `STARTUP` upon receiving `5.0V` rail power from the `30V 50kHz` lifeline. |
 | **STARTUP** | Bootstraps ESP32-S3 peripherals, sets `CH422G EXIO5 = HIGH` (`CAN_SEL`), mounts storage, and initializes UI. | Exits to `DISCOVERY` once TWAI CAN bus and stored configuration load cleanly. |
-| **DISCOVERY** | Listens for `500 ms` node heartbeats and serial broadcasts; checks against expected node list and detects duplicate IDs. | Exits to `READY` when all `Required` nodes report `READY` with zero ID conflicts. Transitions to `FAULT` if a conflict or missing `Required` node persists past timeout. |
+| **DISCOVERY** | Collects node heartbeats and identity messages and checks them against the expected node list. The discovery deadline and identity-request behavior must follow the approved CAN contract. | Exits to `READY` when all `Required` nodes report `READY` with zero ID conflicts. Transitions to `FAULT` if a conflict or missing `Required` node persists past the approved discovery deadline. |
 | **READY** | All `Required` nodes are verified online and healthy; main power buses remain de-energized awaiting auto-start or operator command. | Exits to `BUS_PRECHARGE` when startup is commanded. |
 | **BUS_PRECHARGE** | Sequences bus bring-up: **Step 1:** Battery Nodes pre-charge and close onto `96VDC` bus. **Step 2:** Boost Nodes pre-charge and regulate `380VDC` bus. | Exits to `RUNNING` once `96VDC` (`86.4V–105.6V`) and `380VDC` buses stabilize within nominal windows. |
 | **RUNNING** | Normal coordinated operation. Dispatches Solar, Grid, and Generator inputs, manages Battery Fleet state, balances Boost/Inverter loads, and enables AC outputs. | Transitions to `DEGRADED` if an `Optional` node drops offline or capacity is constrained; transitions to `FAULT` if bus regulation fails or a `Required` capability is lost. |
@@ -47,9 +47,9 @@ Every functional node (`0x100–0x6FF`) implements the following local state mac
 
 1. **OFF:** Module unpowered.
 2. **STARTUP:** MCU initializes clocks, ADCs, `HRTIM1` safe-off states, isolated CAN transceiver, and internal subsystem links (e.g., DALY BMS UART/CAN).
-3. **READY:** Self-test passed, contactors open (`Q_PRE = OPEN`, `Q_ISOL = OPEN`), transmitting `500 ms` heartbeats, awaiting Coordinator command.
+3. **READY:** Self-test passed, contactors open (`Q_PRE = OPEN`, `Q_ISOL = OPEN`), transmitting `100 ms` heartbeats, awaiting Coordinator command.
 4. **RUNNING:** Pre-charge sequence completed (`Q_ISOL = CLOSED`), active power conversion or harvesting enabled under local closed-loop control and Coordinator dispatch limits.
-5. **DEGRADED:** Coordinator heartbeat/command timeout (`>1500 ms`) or local thermal derating active:
+5. **DEGRADED:** Coordinator heartbeat timeout (`>500 ms`) or local thermal derating active:
    - **Battery Nodes:** Hold `96VDC` bus regulation within safe voltage droop bounds using last valid limits.
    - **Solar Nodes:** Continue autonomous MPPT with local `96VDC` overvoltage curtailment.
    - **Boost Nodes:** Primary Boost Node maintains `380VDC` regulation; Secondary Boost Nodes enter standby.
