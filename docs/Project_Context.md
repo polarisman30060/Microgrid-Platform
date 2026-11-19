@@ -1,6 +1,6 @@
 # Project Context
-Version: 0.2
-Last Updated: 2026-11-17
+Version: 1.0
+Last Updated: 2026-11-18
 
 # Project Overview
 
@@ -65,7 +65,7 @@ Coordinator responsibilities:
 
 - Node Discovery & Startup Sequencing
 - Power Allocation & Battery Fleet Coordination
-- Multi-Module Load Balancing
+- Multi-Module Load Balancing (`20 ms` current-balancing tokens)
 - Local Touchscreen HMI & Wi-Fi Web Server Monitoring
 
 The Coordinator does not own system safety. Local module controllers retain autonomous authority to disconnect and enter protective states without Coordinator approval.
@@ -78,7 +78,7 @@ Coordinator Owns Resource Allocation
 
 # Network & Communications Reference
 
-All system-wide CAN 2.0B rules—including the 11-bit identifier standard, `0x100–0x8FF` node address blocks, `500 ms` heartbeat / `1500 ms` timeout rules, permanent serial numbers, duplicate address handling, and Coordinator-loss degraded mode behavior—are defined in `protocol/Microgrid_Communications_Specifications.md`.
+All system-wide Classical CAN 2.0B rules—including the `500 kbps` 11-bit identifier standard (`0x000–0x7FF`), `100 ms` heartbeat / `500 ms` timeout rules, `20 ms` current-balancing tokens, permanent serial numbers, duplicate address handling, and Coordinator-loss `DEGRADED_AUTONOMOUS` mode behavior—are defined in `protocol/Microgrid_Communications_Specifications.md` and `protocol/CAN_Messages_Definitions.md`.
 
 # Battery Architecture & DALY BMS Strategy
 
@@ -99,14 +99,6 @@ Energy flow priority:
 3. Storage supplies deficits.
 4. Generator/Grid may support charging when desired.
 
-# Open Items
-
-- Complete remaining Node Definitions in `architecture/nodes/` (Solar, Inverter, Generator, Grid Interface, Coordinator, Display)
-- Define Coordinator State Machine (`architecture/System_State_MAchine.md`)
-- Define CAN Message Payloads (`protocol/CAN_Messages_Definitions.md`)
-- Define Fault Codes (`protocol/Fault_Codes.md`)
-- Define Load Sharing, Battery Fleet Management, and Startup Sequences
-
 # Development Environment
 
 Repository:
@@ -125,8 +117,8 @@ Development Tools:
 
 Target Supervisor Hardware:
 
-- Waveshare ESP32-S3-Touch-LCD-7 Rev 1.2
+- Waveshare ESP32-S3-Touch-LCD-7 Rev 1.2 (`CH422G EXIO5 = HIGH` for CAN transceiver routing)
 
 Target Module Controller:
 
-- STM32G474QE (and compact STM32G474 packages for per-panel Solar MPPT nodes)
+- STM32G474QE (and compact STM32G474CE/RE packages for per-panel Solar MPPT nodes)

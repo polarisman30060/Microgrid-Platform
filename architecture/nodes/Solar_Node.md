@@ -54,9 +54,9 @@ The Solar Node provides a standardized renewable energy harvesting interface bet
 
 ## Coordinator Interaction
 
-- Transmits periodic heartbeats (`500 ms`), permanent serial number, and harvesting telemetry
+- Transmits periodic heartbeats (`100 ms`), permanent serial number, and harvesting telemetry
 - Receives remote Node ID assignment/configuration, power-curtailment limits, and future snow-melting commands via the Coordinator web interface
-- Continues autonomous MPPT harvesting within safe bus voltage limits if Coordinator communications are lost (`>1500 ms`)
+- Continues autonomous MPPT harvesting within safe bus voltage limits if Coordinator communications are lost (`>500 ms`)
 
 ## Fault Conditions
 

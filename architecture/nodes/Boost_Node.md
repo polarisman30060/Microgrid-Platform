@@ -56,9 +56,9 @@ The Boost Node transfers energy from the 96VDC Energy Bus to the 380VDC Inverter
 
 ## Coordinator Interaction
 
-- Transmits periodic heartbeats (`500 ms`) and bus telemetry
+- Transmits periodic heartbeats (`100 ms`) and bus telemetry
 - Receives startup, standby, and parallel current-sharing setpoints from the Coordinator
-- Transitions to deterministic Primary/Secondary fallback behavior if Coordinator communications are lost (`>1500 ms`)
+- Transitions to deterministic Primary/Secondary fallback behavior if Coordinator communications are lost (`>500 ms`)
 
 ## Fault Conditions
 

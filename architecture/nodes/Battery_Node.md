@@ -59,6 +59,12 @@ The Battery Node provides a standardized energy storage interface between a batt
 - Enter a protective state without Coordinator approval
 - Isolate the battery system from the microgrid when safe operation cannot be maintained
 
+## Coordinator Interaction
+
+- Transmits periodic heartbeats (`100 ms`) and bus telemetry
+- Receives startup, standby, and parallel current-sharing setpoints from the Coordinator
+- Transitions to deterministic Primary/Secondary fallback behavior if Coordinator communications are lost (`>500 ms`)
+- 
 ## Fault Handling Behavior
 
 - The Battery Node shall autonomously enter a protective state when a safety limit is exceeded.

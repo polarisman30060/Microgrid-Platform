@@ -60,7 +60,7 @@ The Coordinator Node serves as the central supervisory intelligence of the micro
 ## Coordinator Interaction
 
 - Acts as the supervisory master polling and orchestrating all functional nodes (`0x100–0x8FF`)
-- Monitors `500 ms` node heartbeats and flags nodes offline after `1500 ms` (3 missed heartbeats)
+- Monitors `100 ms` node heartbeats and flags nodes offline after `500 ms` (3 missed heartbeats)
 
 ## Fault Conditions
 

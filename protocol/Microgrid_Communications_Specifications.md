@@ -1,201 +1,38 @@
 # Microgrid Communications Specification
 
-Version: 0.1
-Status: Draft
+Version: 1.0
+Status: Active Baseline
 
-## CAN Identifier Format
+## 1. Physical & Data-Link Layer
 
 The Microgrid Communications Bus shall use:
 
-- CAN 2.0B Physical Layer
-- Standard 11-bit CAN Identifiers
-
-Extended 29-bit identifiers are not used in Revision 0.1.
-
-## Node Discovery
-
-Nodes use fixed manually assigned addresses.
-
-The Supervisor shall perform node discovery during startup and continuously during system operation.
-
-The Supervisor shall not assign CAN addresses.
-
-Nodes may be classified as:
-
-- Required
-- Optional
-- Ignored
-
-System startup shall require all Required nodes to be present and operational.
-
-## Heartbeats
-
-All nodes shall transmit a heartbeat message every 500 ms.
-
-A node shall be considered offline after three consecutive missed heartbeats.
-
-Offline timeout = 1500 ms.
-
-## System Configuration
-
-During initial commissioning, the Supervisor may discover and record active nodes.
-
-After configuration is saved, the recorded node list becomes the expected system configuration.
-
-Subsequent startups shall compare discovered nodes against the stored configuration.
-
-The Supervisor shall not assign node addresses.
-
-## Startup Validation
-
-Missing Required nodes shall inhibit system startup.
-
-Missing Optional nodes shall not inhibit startup.
-
-The Supervisor shall report missing Optional nodes as warnings to the operator.
-
-## Node Address Allocation
-
-Addresses shall be grouped by node function.
-
-0x100-0x1FF  Battery Nodes
-
-0x200-0x2FF  Solar Nodes
-
-0x300-0x3FF  Boost Nodes
-
-0x400-0x4FF  Inverter Nodes
-
-0x500-0x5FF  Grid Interface Nodes
-
-0x600-0x6FF  Generator Nodes
-
-0x700-0x7FF  Display Nodes
-
-0x800-0x8FF  Service/Test Nodes
-
-## Node Identification
-
-Accessible modules shall display their configured Node ID through a local user interface (`1.3-inch` OLED display) so the Node ID is visible without external diagnostic equipment.
-
-The local interface should also provide access to:
-
-- Node Type
-- Firmware Version
-- Communication Status
-- Module Serial Number
-
-**Exception (Inaccessible Per-Panel Solar MPPT Modules):** Per-panel Solar MPPT modules mounted in inaccessible outdoor locations omit local displays and buttons. These modules report their permanent Serial Number, configured Node ID, firmware version, and status remotely to the Coordinator web interface over CANbus.
-
-## Duplicate Address Detection
-
-Each module shall contain a unique serial number.
-
-The Supervisor shall monitor for duplicate node addresses.
-
-If multiple modules report the same Node ID, the Supervisor shall declare an address conflict.
-
-Address conflicts shall be reported to the operator.
-
-Startup shall be inhibited if a Required node is involved in an address conflict.
-
-The Supervisor shall not automatically reassign node addresses.
-
-## Module Serial Numbers
-
-Each module shall contain a permanent unique serial number.
-
-The serial number shall be assigned during manufacturing or initial firmware programming.
-
-Serial numbers shall not be automatically regenerated.
-
-Node IDs may change through configuration.
-
-Serial numbers shall remain constant for the life of the module.
-
-## Fault Authority
-
-Each module shall possess local fault authority.
-
-A module may enter FAULT or LOCKOUT state without Supervisor approval when a local safety condition is detected.
-
-Examples include:
-
-- Overvoltage
-- Undervoltage
-- Overcurrent
-- Overtemperature
-- Hardware Faults
-- Sensor Failures
-
-The Supervisor shall be informed through fault messages but shall not be required for protective action.
-
-System Philosophy:
-
-Local Modules Own Safety
-
-Supervisor Owns Coordination
-
-## Coordinator Function and Failure Behavior
-
-The Supervisor functions as the System Coordinator.
-
-The Coordinator is responsible for:
-
-- Node Discovery
-- Startup Sequencing
-- Power Allocation
-- Battery Charge / Discharge Management
-- Multi-Module Load Balancing
-- System Monitoring
-- HMI and Operator Interaction
-
-The Coordinator shall not be responsible for module-level safety protection.
-
-Safety protection shall remain the responsibility of the individual module controllers.
-
-Examples include:
-
-- Overcurrent Protection
-- Overvoltage Protection
-- Undervoltage Protection
-- Overtemperature Protection
-- Hardware Fault Detection
-
-System Design Philosophy:
-
-Local Modules Own Safety
-
-Coordinator Owns Resource Allocation
-
-### Coordinator Loss
-
-Loss of the Coordinator shall not create an unsafe operating condition.
-
-Upon loss of Coordinator communications, local module controllers shall continue operating using their most recent valid operating parameters.
-
-The system shall transition into DEGRADED MODE.
-
-### Degraded Mode
-
-In DEGRADED MODE:
-
-- Existing power conversion modules may continue operation.
-- Local safety functions shall remain fully active.
-- System optimization and load balancing functions may be reduced or unavailable.
-- Available system capacity may be reduced.
-- Non-critical loads may be shed if required.
-
-### Multiple Boost Converter Systems
-
-In systems utilizing multiple boost converter modules, coordinated load sharing is normally managed by the Coordinator.
-
-If Coordinator communications are lost:
-
-- A designated Primary Boost Converter may continue operation.
-- Secondary Boost Converters may enter Standby or Shutdown mode.
-- The 380VDC bus shall remain operational if sufficient capacity exists within the remaining active boost converters.
-
-This behavior allows the system to preserve operation of critical loads while eliminating dependence on the Coordinator for safe operation.
-
-The loss of optimization shall not immediately result in loss of power.
+- **Protocol Standard:** Classical CAN 2.0B (Non-FD). All STM32G474QE FDCAN controllers must be configured strictly in Classic CAN mode (`FDCAN_FRAME_CLASSIC`) to ensure 100% compatibility with the Coordinator's ESP32-S3 TWAI controller.
+- **Identifier Format:** Standard 11-bit CAN Identifiers (`0x000`–`0x7FF`) for all real-time control, telemetry, discovery, and fault traffic. Extended 29-bit frames are unused for real-time operation in Revision 1.0 and reserved strictly for future offline firmware OTA or bulk diagnostics.
+- **Nominal Bitrate:** `500 kbps` with galvanic isolation (`> 2.5 kVrms`) at every node and `120 Ohm` termination at both physical bus ends.
+- **Maximum Payload:** `8 bytes` per frame (Little-Endian / Intel byte order).
+- **Wire-Level Frame Definitions:** See [`CAN_Messages_Definitions.md`](./CAN_Messages_Definitions.md) for exact bitmasks, scaling, and payload layouts.
+
+## 2. Priority-Based CAN Identifier Allocation
+
+CAN identifiers are allocated by **message priority and function** so critical hardware faults and supervisory dispatch frames always win bus arbitration over routine telemetry:
+
+- `0x001` – `0x01F`: **Highest Priority** — Emergency Hardware Faults (Event-driven)
+- `0x100` – `0x11F`: **Very High Priority** — Coordinator Heartbeat & Global State (`100 ms`)
+- `0x120` – `0x1FF`: **High Priority** — Supervisory Control Setpoints & Current Balancing Tokens (`20 ms`–`100 ms`)
+- `0x200` – `0x2FF`: **Medium-High Priority** — Battery / BMS Node Telemetry (`50 ms` fast / `250 ms` slow)
+- `0x300` – `0x3FF`: **Medium Priority** — HV Boost Converter Telemetry (`50 ms` fast / `250 ms` slow)
+- `0x400` – `0x4FF`: **Medium Priority** — Renewable & Fuel Source Telemetry: Solar MPPT, Generator, Grid Interface (`50 ms`–`250 ms`)
+- `0x500` – `0x5FF`: **Medium-Low Priority** — AC Output Inverter & Software Breaker Telemetry (`50 ms` fast / `250 ms` slow)
+- `0x600` – `0x6FF`: **Low Priority** — Node Heartbeats & Local State Status (`100 ms`)
+- `0x700` – `0x7FF`: **Lowest Priority** — Node Identity (Serial Numbers), Discovery, Configuration & Command Acknowledgements (`1000 ms` / On-demand)
+
+## 3. Timing & Watchdog Hierarchy
+
+Because the `96 VDC` Energy Bus and `380 VDC` Inverter Bus incorporate large bulk electrolytic and film capacitor banks, fast cycle-by-cycle current loops (` 500 ms`) shall never create an unsafe operating condition.
+- Upon Coordinator timeout, active nodes transition to `DEGRADED_AUTONOMOUS` mode using their last valid operating limits:
+  - **Battery Nodes:** Hold `96.0 VDC` Energy Bus regulation within autonomous V-I droop bounds; keep `30V 50kHz` Auxiliary Lifeline active.
+  - **Solar MPPT Nodes:** Continue autonomous MPPT harvesting with local `96 VDC` overvoltage curtailment (`<= 100.8 VDC`).
+  - **Multiple Boost Converter Systems:** A designated **Primary Boost Node** maintains `380.0 VDC` Inverter Bus regulation via local droop control, while **Secondary Boost Nodes** enter `Standby` so parallel converters do not fight over bus voltage without Coordinator current-balancing tokens.
+  - **Inverter Nodes:** Maintain `60 Hz` AC output while `380 VDC` remains within valid bounds (`360 V`–`400 V`) and local `I²t` / short-circuit protection remains active.
+  - **Generator & Grid Interface Nodes:** Safely ramp down power import/generation and isolate (`Generator` completes engine cooldown before shutdown; `Grid Interface` opens AC and DC contactors).

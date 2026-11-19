@@ -54,9 +54,9 @@ The Grid Interface Node provides a controlled, power-factor-corrected interface 
 
 ## Coordinator Interaction
 
-- Transmits periodic heartbeats (`500 ms`), utility availability status, and imported power telemetry
+- Transmits periodic heartbeats (`100 ms`), utility availability status, and imported power telemetry
 - Receives grid-import enable commands and current/wattage limits from the Coordinator
-- Ceases power import and opens isolation contactors if Coordinator communications are lost (`>1500 ms`)
+- Ceases power import and opens isolation contactors if Coordinator communications are lost (`>500 ms`)
 
 ## Fault Conditions
 
