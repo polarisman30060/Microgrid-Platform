@@ -13,7 +13,7 @@ Modular residential microgrid architecture based on:
 
 Architecture Development
 
-The Coordinator firmware now transmits the normal coordinator heartbeat and parses the proposed Battery 0 identity, heartbeat, and telemetry frames. The initial V0 targets one Battery Node emulated by a PC program connected through the Waveshare USB-CAN-A; the Coordinator uses normal node messages and needs no simulator-specific mode. The PC simulator is in [simulator/](simulator/); Battery command transmission in the Coordinator firmware remains future work. See the [Coordinator CAN implementation guide](docs/Coordinator_CAN_Implementation.md).
+The Coordinator firmware now transmits the normal coordinator heartbeat and parses the proposed Battery 0 identity, heartbeat, and telemetry frames. The configured Boost 0 CAN profile is frozen for isolated Nucleo simulator and compatible-firmware development; broader CAN behavior remains draft. The standalone Nucleo Boost 0 firmware project is in [firmware/nucleo_boost_simulator/](firmware/nucleo_boost_simulator/) and its PlatformIO build passes; board flashing and CAN-bench tests are pending. Coordinator command transmission and Boost frame support remain future work. See the [Coordinator CAN implementation guide](docs/Coordinator_CAN_Implementation.md).
 
 ## Major Components
 

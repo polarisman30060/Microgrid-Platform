@@ -61,20 +61,20 @@ Each power module retains authority over its local control loops, hardware trips
 
 ## Communications Contract Gate
 
-The current Coordinator implementation transmits `COORD_HEARTBEAT` and decodes the proposed Battery 0 identity, heartbeat, and telemetry frames. Bidirectional CAN with a PC program emulating ordinary module nodes through the Waveshare USB-CAN-A is the development requirement; the Coordinator must not require a simulator-specific mode or protocol. Battery command transmission and the PC simulator remain unimplemented. The current project-wide timing target is a `100 ms` node/coordinator heartbeat and a `500 ms` timeout; those timings are not a substitute for completing the protocol review.
+The current Coordinator implementation transmits `COORD_HEARTBEAT` and decodes the proposed Battery 0 identity, heartbeat, and telemetry frames. Bidirectional CAN with emulated ordinary module nodes is the development requirement; the Coordinator must not require a simulator-specific mode or protocol. The PC Battery emulator exists, but Coordinator command transmission and end-to-end validation remain unimplemented. The current project-wide timing target is a `100 ms` node/coordinator heartbeat and a `500 ms` timeout; those timings are not a substitute for completing the protocol review.
 
-The following protocol questions remain implementation blockers:
+The Boost instance 0 wire profile is frozen only for isolated simulator and compatible-firmware development; see Section 3.6.1 of [`../protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md). The current Coordinator does not yet decode Boost frames or transmit node commands. The following project-wide protocol questions remain implementation blockers:
 
 - `EMERGENCY_FAULT` uses `0x001 + Node_Type`, so nodes of the same type share an identifier and may attempt simultaneous transmission. Define unique arbitration identifiers for faulting nodes.
-- `CMD_ACK` uses `0x740 + GlobalNodeID`, which overlaps the fixed `0x780` remote-provisioning identifier for some node IDs.
+- `CMD_ACK` uses `0x740 + GlobalNodeID`, which overlaps the fixed `0x780` remote-provisioning identifier for some node IDs. The frozen Boost 0 profile's `0x760` ACK is not affected.
 - Define how an unconfigured node announces its identity before it has a `GlobalNodeID`, and clarify which node-ID values are valid for every node type.
 - Specify whether a malformed command is acknowledged or dropped; the current CRC-error rule says both.
 - Define command acknowledgement/retry and duplicate-command behavior before enabling state-changing commands.
 - Reconcile payload definitions with the intended telemetry and command semantics, then publish one reviewed, versioned protocol as the implementation source of truth.
 
-Until these items are resolved, firmware may develop and test CAN transport independently, but shall not transmit application commands or treat illustrative protocol examples as settled safety behavior. See [Coordinator CAN implementation guide](Coordinator_CAN_Implementation.md).
+Until these items are resolved, firmware may develop and test CAN transport and the specifically frozen Boost 0 communications profile, but shall not generalize its command behavior to other nodes or treat illustrative examples as settled safety behavior. The Boost profile does not authorize or test physical power control. See [Coordinator CAN implementation guide](Coordinator_CAN_Implementation.md).
 
-The first simulator integration shall use the ordinary Battery Node identity, heartbeat, telemetry, command, and acknowledgement messages. Review and freeze that single-node profile before implementing it. The PC simulation shall never actuate physical power hardware.
+The PC Battery simulator uses ordinary Battery Node messages and remains a separate initial integration milestone. The Nucleo-G474RE Boost simulator shall use the frozen Boost 0 profile, ordinary CAN identifiers, and an external isolated CAN transceiver. Neither simulator shall actuate physical power hardware.
 
 ## Implementation Constraints
 
@@ -83,7 +83,7 @@ The first simulator integration shall use the ordinary Battery Node identity, he
 - CPU 1 logic shall not call LVGL or perform blocking network, display, or storage work. Cross-core exchange shall use bounded queues or other synchronization with defined ownership.
 - ESP-IDF and hardware system services may still use either core as required; the affinity rule applies to application workloads and configured network/display tasks.
 - Hardware initialization shall respect board-specific shared-pin routing, including selecting the CAN path before using the TWAI interface, as specified by `hardware/System_Coordinator_Hardware.md`.
-- CAN runs at 500 kbit/s on CPU 1. Coordinator heartbeat TX and Battery 0 RX/decoding are implemented as the first firmware slice. The next end-to-end milestone is a PC program emulating the Battery Node over the Waveshare USB-CAN-A. The Coordinator shall use the same node protocol as it would with hardware; the PC must not control real power hardware.
+- CAN runs at 500 kbit/s on CPU 1. Coordinator heartbeat TX and Battery 0 RX/decoding are implemented as the first firmware slice. The PC Battery Node emulator exists, and the standalone Nucleo Boost 0 project builds; physical Nucleo flashing, isolated-bus tests, and Coordinator support for Boost RX and command/ACK exchange remain pending. Simulators must not control real power hardware.
 - Wi-Fi credentials entered through the LCD shall be persisted only after a successful connection. Passwords shall be masked on screen and must not be logged.
 - Production deployment shall define NVS/flash encryption for stored Wi-Fi credentials before the device is exposed to physical access.
 - The LCD shall report Wi-Fi connection state and the web-server address so initial setup can continue from a browser on the same network.
@@ -98,11 +98,11 @@ The first simulator integration shall use the ordinary Battery Node identity, he
 - Build the firmware for its configured target after changes to the Coordinator project.
 - Test state transitions, startup interlocks, timeout handling, malformed or stale inputs, and failure paths without requiring live power hardware.
 - Verify CAN payload encoding and decoding against the reconciled protocol definitions, including boundary values and invalid frames.
-- Commands may be exercised against the PC module emulator only on an isolated communications bench with no power hardware attached. Hardware-in-the-loop tests and safety review are required before using command-capable Coordinator firmware on a real power system.
+- Commands may be exercised against the PC or Nucleo module emulators only on an isolated communications bench with no power hardware attached. Hardware-in-the-loop tests and safety review are required before using command-capable Coordinator firmware on a real power system.
 
 ## Open Questions
 
-- Resolve and approve unique emergency identifiers, ACK/provisioning identifier overlap, unconfigured-node identity, and malformed-command handling before implementing the CAN application layer.
+- Resolve and approve unique emergency identifiers, project-wide ACK/provisioning identifier overlap, unconfigured-node identity, and malformed-command handling before generalizing the CAN application layer beyond the frozen Boost 0 profile.
 - Define the acknowledged command lifecycle, including retries, duplicate-command handling, and safe behavior when acknowledgements are lost.
 - Define the persistence format, configuration migration policy, and behavior when the SD card is absent or fails.
 - Define operator authorization and audit requirements for remote controls and fault resets.

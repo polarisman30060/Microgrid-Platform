@@ -1,7 +1,7 @@
 # Microgrid Communications Specification
 
 Version: 1.0
-Status: Draft - not approved for firmware application-layer implementation
+Status: Draft overall. The configured Boost instance 0 communications profile is frozen for isolated simulator and compatible-firmware development only; all other profiles and project-wide behavior remain draft. This does not approve electrical behavior or production deployment.
 
 ## 1. Physical & Data-Link Layer
 
@@ -39,3 +39,5 @@ CAN is supervisory communication only. Fast cycle-by-cycle current loops and har
   - **Multiple Boost Converter Systems:** A designated **Primary Boost Node** maintains `380.0 VDC` Inverter Bus regulation via local droop control, while **Secondary Boost Nodes** enter `Standby` so parallel converters do not fight over bus voltage without Coordinator current-balancing tokens.
   - **Inverter Nodes:** Maintain `60 Hz` AC output while `380 VDC` remains within valid bounds (`360 V`–`400 V`) and local `I²t` / short-circuit protection remains active.
   - **Generator & Grid Interface Nodes:** Safely ramp down power import/generation and isolate (`Generator` completes engine cooldown before shutdown; `Grid Interface` opens AC and DC contactors).
+
+The configured Boost instance 0 wire profile is frozen for communications-simulator development; see [`CAN_Messages_Definitions.md`](./CAN_Messages_Definitions.md), Section 3.6.1. This is a node-specific exception, not approval of the remaining project-wide application protocol.

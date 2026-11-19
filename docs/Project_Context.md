@@ -1,6 +1,6 @@
 # Project Context
 Version: 1.0
-Last Updated: 2026-11-18
+Last Updated: 2026-11-19
 
 # Project Overview
 
@@ -78,7 +78,7 @@ Coordinator Owns Resource Allocation
 
 # Network & Communications Reference
 
-The proposed Classical CAN 2.0B contract—including the `500 kbps` 11-bit identifier standard (`0x000–0x7FF`), `100 ms` heartbeat / `500 ms` timeout targets, `20 ms` current-balancing tokens, permanent serial numbers, duplicate address handling, and Coordinator-loss `DEGRADED_AUTONOMOUS` behavior—is documented in `protocol/Microgrid_Communications_Specifications.md` and `protocol/CAN_Messages_Definitions.md`. These documents are drafts with application-level blockers; see `docs/Software_Design_Constraints.md` before implementing CAN application behavior.
+The proposed Classical CAN 2.0B contract—including the `500 kbps` 11-bit identifier standard (`0x000–0x7FF`), `100 ms` heartbeat / `500 ms` timeout targets, `20 ms` current-balancing tokens, permanent serial numbers, duplicate address handling, and Coordinator-loss `DEGRADED_AUTONOMOUS` behavior—is documented in `protocol/Microgrid_Communications_Specifications.md` and `protocol/CAN_Messages_Definitions.md`. The configured Boost 0 wire profile is frozen for isolated simulator and compatible-firmware development; all other profiles and project-wide behavior remain draft. See `docs/Software_Design_Constraints.md` for remaining blockers.
 
 # Battery Architecture & DALY BMS Strategy
 

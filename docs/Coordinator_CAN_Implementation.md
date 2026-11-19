@@ -16,9 +16,13 @@ The Coordinator firmware is under `firmware/coordinator_module/`.
 
 This is an initial full-duplex Coordinator slice, not a complete Coordinator CAN stack. It can transmit the coordinator heartbeat and receive the proposed Battery 0 profile, but has not yet been tested against the PC simulator. The simulator must not connect to or control real power hardware.
 
+The standalone Nucleo-G474RE Boost 0 simulator has been added under `firmware/nucleo_boost_simulator/` and its PlatformIO build succeeds. No Nucleo/ST-LINK was connected for flashing, and Coordinator Boost decoding/command handling remains unimplemented.
+
 ## Protocol authority and blockers
 
-The proposed protocol is in [`../protocol/Microgrid_Communications_Specifications.md`](../protocol/Microgrid_Communications_Specifications.md) and [`../protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md). The project timing target is a `100 ms` heartbeat and `500 ms` timeout. For the first Battery Node profile, use its normal identity, heartbeat, telemetry, command, and acknowledgement frames; do not invent a separate ping/pong protocol. A Battery Node with `Instance = 0` has `GlobalNodeID = 0x10` in the current draft: telemetry IDs `0x200`/`0x210`, heartbeat `0x610`, identity `0x710`, command `0x130`, and acknowledgement `0x750`. Treat these as proposed profile values until the CAN draft is reviewed. Resolve the remaining protocol issues listed in [`Software_Design_Constraints.md`](Software_Design_Constraints.md) before generalizing beyond this profile.
+The proposed protocol is in [`../protocol/Microgrid_Communications_Specifications.md`](../protocol/Microgrid_Communications_Specifications.md) and [`../protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md). The project timing target is a `100 ms` heartbeat and `500 ms` timeout. The configured Boost 0 communications profile is frozen for isolated simulator and compatible-firmware development only; its IDs and limited command/ACK rules are in CAN definitions Section 3.6.1. This does not freeze other Boost instances or the project-wide protocol.
+
+The initial Battery 0 profile remains proposed: `GlobalNodeID = 0x10`, telemetry IDs `0x200`/`0x210`, heartbeat `0x610`, identity `0x710`, command `0x130`, and acknowledgement `0x750`. Do not invent simulator-specific identifiers. The current Coordinator implementation still only decodes Battery 0 frames and transmits its heartbeat; it does not yet transmit commands or decode Boost frames. Resolve the remaining system-wide protocol issues in [`Software_Design_Constraints.md`](Software_Design_Constraints.md) before enabling other node profiles or production application behavior.
 
 The PC simulator must send and receive the same frames a Battery Node would use and respond according to its simulated state. Never connect this software model to equipment capable of energizing a real bus.
 
@@ -60,8 +64,10 @@ The `3 s` discovery deadline and three-period telemetry freshness thresholds are
 3. **Implement full-duplex Coordinator handling.** Add the bounded TX path, periodic coordinator heartbeat, RX validation, Battery 0 codecs, registry, and explicit command/ACK lifecycle.
 4. **Build the PC Battery Node simulator.** Connect the Waveshare USB-CAN-A to the same isolated CAN bus as the Coordinator. Send ordinary Battery 0 frames, receive Coordinator frames, and respond according to simulated battery state.
 5. **Prove the two-way node lifecycle.** Verify startup discovery, telemetry updates, explicit Coordinator commands, acknowledgements, heartbeat timeout, simulated node loss, and recovery. The Coordinator must process the simulated node like a real one.
-6. **Resolve the full wire contract.** Before adding more node types, resolve unique emergency IDs, the `0x740+GlobalNodeID` / `0x780` overlap, unconfigured-node identity, malformed-command acknowledgement behavior, retries, and version compatibility.
-7. **Connect presentation last.** Publish bounded snapshots or events to the UI. CAN/control tasks must not call LVGL or block on Wi-Fi, display, or storage work; follow the core ownership constraints in [`Software_Design_Constraints.md`](Software_Design_Constraints.md).
+6. **Resolve the full wire contract.** Before generalizing beyond the frozen Boost 0 profile, resolve unique emergency IDs, the project-wide `0x740+GlobalNodeID` / `0x780` overlap, unconfigured-node identity, malformed-command acknowledgement behavior, retries, and version compatibility.
+7. **Build the Nucleo Boost 0 simulator.** The standalone Nucleo-G474RE PlatformIO firmware now builds. Flashing and bench verification remain pending; use an external isolated CAN transceiver and never configure or drive power-stage outputs.
+8. **Add Boost 0 Coordinator support and verify end-to-end.** Decode the simulator's frozen telemetry, heartbeat, and identity frames and implement bounded command/ACK handling. Keep all power-enable flags clear; this is a communications test, not permission to control a power stage. Verify on an isolated CAN bench.
+9. **Connect presentation last.** Publish bounded snapshots or events to the UI. CAN/control tasks must not call LVGL or block on Wi-Fi, display, or storage work; follow the core ownership constraints in [`Software_Design_Constraints.md`](Software_Design_Constraints.md).
 
 ## Verification gates
 
@@ -75,7 +81,7 @@ The `3 s` discovery deadline and three-period telemetry freshness thresholds are
 
 ## Out of scope
 
-The Coordinator does not run converter switching loops, provide hardware overcurrent protection, or replace local module interlocks. CAN loss must not disable module-local protection. The PC emulator never operates physical contactors or power stages.
+The Coordinator does not run converter switching loops, provide hardware overcurrent protection, or replace local module interlocks. CAN loss must not disable module-local protection. PC and Nucleo emulators never operate physical contactors or power stages.
 
 ## Waveshare USB-CAN-A PC interface
 

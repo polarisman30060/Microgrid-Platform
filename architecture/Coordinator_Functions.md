@@ -3,7 +3,7 @@
 ## 1. Role & Architectural Boundaries
 The System Coordinator serves as the supervisory manager, human-machine interface (HMI), and telemetry gateway for the microgrid.
 
-The CAN timings and frame references below describe intended behavior. The application protocol remains a draft; see [`../docs/Coordinator_CAN_Implementation.md`](../docs/Coordinator_CAN_Implementation.md) before implementing CAN application behavior.
+The CAN timings and frame references below describe intended behavior. The configured Boost 0 wire profile is frozen for isolated simulator and compatible-firmware development only; the wider application protocol remains a draft. See [`../docs/Coordinator_CAN_Implementation.md`](../docs/Coordinator_CAN_Implementation.md) before implementing additional CAN application behavior.
 
 **Strict Real-Time Boundary:** The Coordinator **never** executes fast cycle-by-cycle PWM regulation or primary hardware overcurrent protection. All high-speed voltage/current loops and microsecond-level fault shutdowns reside strictly inside the local node microcontrollers. If the Coordinator reboots or disconnects, the microgrid continues operating safely in `DEGRADED_AUTONOMOUS` mode.
 

@@ -62,7 +62,7 @@ Expose simulation time, node states, source/load power, bus voltage, battery sta
 - On Windows, use the Waveshare CH341SER driver and the adapter's COM port. Keep the USB serial baud rate (`2,000,000` by default) separate from the CAN bitrate (`500 kbit/s` for this project).
 - Select one USB-CAN-A serial framing mode for the simulator and configure the adapter to match. The initial recommendation is Waveshare's variable-length framing (`0xAA` header, type/DLC, CAN ID, data, `0x55` terminator); Waveshare's fixed 20-byte format is an alternative, not a simultaneous mode. The PC parser must handle packets split or combined across serial reads.
 - Configure the adapter for CAN normal mode and standard 11-bit frames. Verify its stored settings before each test session; USB-CAN-A settings can persist across power cycles.
-- Reuse approved protocol codecs or shared conformance fixtures rather than reimplementing message layouts separately. Do not encode the currently unresolved CAN application contract as if approved.
+- Reuse approved protocol codecs or shared conformance fixtures rather than reimplementing message layouts separately. The configured Boost 0 profile is frozen for isolated simulator development in [`../protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md), Section 3.6.1; do not treat other unresolved profiles as approved.
 - The simulator must not activate physical contactors or power stages. Connect it only to an isolated communications bench, never to a live power system.
 
 ## Acceptance criteria
@@ -87,6 +87,10 @@ Expose simulation time, node states, source/load power, bus voltage, battery sta
 - Review and approve the single-Battery CAN profile before implementing its production-format frames.
 
 The initial PC application uses Waveshare variable-length serial framing and `pyserial` for COM-port access. It does not configure the adapter's CAN bitrate or framing mode; set and verify those with Waveshare's configuration tool before each bench session. Run `simulator\run_simulator.bat` to create a local Python environment, install the serial dependency, and start the application.
+
+## Nucleo Boost 0 Communications Simulator
+
+The first embedded simulator target is a configured Boost instance 0 on the ST Nucleo-G474RE. Its standalone PlatformIO firmware project has been created and builds successfully; physical flashing and bench behavior remain unverified. It uses the frozen ordinary-node CAN profile in [`../protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md), Section 3.6.1. It sends the Boost telemetry, heartbeat, and identity frames, receives Coordinator heartbeat/control frames, and returns simulated ACKs. It must not drive contactors, PWM, or other power-stage controls. Use an isolated communications bench with an external galvanically isolated CAN transceiver; the Nucleo MCU's FDCAN peripheral is not itself a CANH/CANL transceiver. Coordinator decoding of Boost frames and command transmission are prerequisites for full end-to-end testing.
 
 ## Adapter references
 

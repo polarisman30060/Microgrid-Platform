@@ -24,4 +24,4 @@ The protocol and Battery model tests do not require a USB-CAN adapter or `pyseri
 
 ## Scope and safety
 
-This is a communications emulator and early node model, not an electrical microgrid simulator. It does not model power flow or energize real contactors or power stages. CAN identifiers and payload layouts are still a draft; command handling is limited to the Battery 0 profile and must be checked against the approved protocol before production use. Invalid command CRCs are dropped without an ACK as the conservative response to the draft's contradictory CRC-error instructions.
+This is a communications emulator and early node model, not an electrical microgrid simulator. It does not model power flow or energize real contactors or power stages. The configured Boost 0 profile is frozen for isolated simulator and compatible-firmware development, but the wider CAN contract and Battery 0 profile remain draft. Invalid Battery command CRCs are dropped without an ACK as the conservative response to the unresolved project-wide CRC-error rule.

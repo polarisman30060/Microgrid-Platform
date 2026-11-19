@@ -4,7 +4,7 @@
 
 ---
 
-> **Implementation status:** This guide mostly describes intended behavior, not implemented firmware. The Coordinator currently sends the `100 ms` coordinator heartbeat and parses the proposed Battery 0 identity, heartbeat, and telemetry frames. It does not yet send Battery commands, implement full production discovery/control, or simulate power flow. Some example frame assignments and workflows remain unapproved. Use the [Coordinator CAN implementation guide](Coordinator_CAN_Implementation.md) and protocol draft for development.
+> **Implementation status:** This guide mostly describes intended behavior, not implemented firmware. The Coordinator currently sends the `100 ms` coordinator heartbeat and parses the proposed Battery 0 identity, heartbeat, and telemetry frames. It does not yet send node commands or decode Boost frames. The configured Boost 0 wire profile is frozen only for isolated simulator and compatible-firmware development; other profiles and project-wide behavior remain draft. No simulator controls power hardware. Use the [Coordinator CAN implementation guide](Coordinator_CAN_Implementation.md) and protocol definitions for current status.
 
 ## 1. What Is CANbus (and Why Are We Using It)?
 

@@ -1,7 +1,7 @@
 # CAN Bus Message & Protocol Specification
 
 Version: 1.0
-Status: Draft - not approved for firmware application-layer implementation
+Status: Draft overall. The configured Boost instance 0 communications profile in Section 3.6.1 is frozen for isolated simulator and compatible-firmware development only. Other profiles and project-wide protocol behavior remain draft; this does not approve electrical behavior or production deployment.
 
 ## 1. Physical & Data-Link Layer
 
@@ -130,6 +130,36 @@ Supervisory dispatch setpoints and current-balancing tokens sent by Coordinator 
   * Bit 6: Role (`1`=Designated Primary Boost, `0`=Secondary Boost)
   * Bit 7: Autonomous Droop Mode Active
 
+### 3.6.1 Frozen Boost Instance 0 Communications Profile
+
+This configured-node profile is frozen for the Nucleo-G474RE communications simulator and compatible Coordinator development. It freezes the wire contract for **Boost instance 0 only**; it does not define or validate power-stage control, protection, precharge physics, or production commissioning. The simulator shall not energize or connect to power-stage hardware.
+
+Profile revision: `0` (frozen 2026-11-19; revision is documentation-only and is not transmitted on CAN).
+
+Boost instance 0 has `GlobalNodeID = (0x02 << 4) | 0 = 0x20` and uses only ordinary microgrid frames:
+
+| Frame | CAN ID | Direction | Period / handling |
+| --- | --- | --- | --- |
+| `COORD_HEARTBEAT` | `0x100` | Coordinator -> bus | Every `100 ms` |
+| `CMD_NODE_CONTROL` | `0x140` | Coordinator -> Boost 0 | Coordinator request; `20 ms` setpoint cadence when active |
+| `TELEM_BOOST_FAST` | `0x300` | Boost 0 -> bus | Every `50 ms` |
+| `NODE_HEARTBEAT` | `0x620` | Boost 0 -> bus | Every `100 ms` |
+| `NODE_IDENTITY` | `0x720` | Boost 0 -> bus | At startup and every `1000 ms` |
+| `CMD_ACK` | `0x760` | Boost 0 -> bus | Event-driven for non-no-op control actions |
+
+All frames are standard 11-bit Classical CAN data frames at `500 kbit/s`, with exactly 8 data bytes and little-endian multi-byte fields. Payload layouts and scaling are those in Sections 3.2, 3.3, 3.6, 3.11, 3.12, and 3.13. This profile uses `CMD_ACK = 0x740 + GlobalNodeID`; for Boost 0 this is `0x760` and does not overlap the fixed provisioning identifier `0x780`.
+
+The following command and acknowledgement rules apply to this profile:
+
+* `CMD_NODE_CONTROL` is accepted only at `0x140` as a standard data frame with DLC 8 and a valid CRC-8/SAE-J1850 over bytes 0–6 (`poly=0x1D`, `init=0xFF`, `refin=false`, `refout=false`, `xorout=0xFF`). A bad-CRC frame is dropped with no ACK. The receiver increments its local CRC-error counter.
+* Action `0x00` is a no-op/hold-current-mode setpoint update and does not generate an ACK. Actions `0x01`, `0x02`, `0x03`, and `0x05` are supported Boost actions. Actions `0x04`, `0x06`, and `0x07` are not applicable to Boost and receive `Rejected_Invalid_State`.
+* Each supported state-changing action produces one `CMD_ACK` with the echoed action, the defined ACK status, current local state, fault summary, and local uptime. The Coordinator allows only one state-changing command in flight to this node and correlates the response by source ID and echoed action. This profile does not specify automatic application-level retries; a missing ACK is an unknown command outcome, not success.
+* The simulator may model acceptance, rejection, and resulting telemetry/state for these actions, but must never drive contactors, PWM, or other power-stage controls. Its simulated measurements and state transitions are not evidence of electrical operation or safety.
+* Boost 0 is statically configured as `GlobalNodeID 0x20`. Remote provisioning and unconfigured-node discovery are not part of this profile. The simulator does not transmit `EMERGENCY_FAULT`; unique system-wide emergency identifiers remain unresolved.
+* For the simulator identity frame, `Power_Stage_Profile_ID = 0x00` means no physical power stage is attached. Capability flags are zero. The serial number must be a configured, unique 32-bit test serial; it must not be copied to another simulated node.
+
+This profile does not freeze other Boost instances, the global emergency-ID allocation, remote provisioning, project-wide retry/version rules, or electrical state-machine behavior. Changes to these require corresponding updates to this specification, the Coordinator, simulator firmware, and conformance tests.
+
 ---
 
 ### 3.7 `0x400 + Instance` — `TELEM_SOLAR_MPPT` (DLC: 8, `100 ms` Periodic)
@@ -249,5 +279,7 @@ Sent by Coordinator during commissioning to assign a new `Instance_ID` to an unc
 - Define the identity/discovery identifier and payload for a node that has not yet been assigned a `GlobalNodeID`, and confirm the valid ID range for each node type.
 - The CRC-error rule says to silently drop an invalid command and also return an error acknowledgement; choose one behavior and define how it can be addressed safely.
 - Define ACK correlation, retries, duplicate-command handling, and protocol version compatibility.
+
+The Boost 0 profile above locally resolves CRC-error handling and ACK correlation for that configured node. The listed system-wide issues remain open and must be resolved before generalizing the profile or enabling broader production application behavior.
 
 Do not treat unresolved frame assignments or illustrative examples as approved command behavior.

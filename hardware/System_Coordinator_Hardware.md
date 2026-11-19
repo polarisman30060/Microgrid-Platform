@@ -47,7 +47,7 @@
   - An **external galvanic CAN isolator** sits between the Waveshare board's CAN interface and the main microgrid CANbus trunk to preserve strict ground isolation across all modules.
   - **Bus-Side Transceiver Power:** The isolated bus-side rail of the CAN isolator is powered directly from a dedicated secondary winding/tap off the **30V 50kHz common auxiliary power source** (rectified and regulated to clean `5.0V` / `3.3V` for the bus-side CAN transceiver), eliminating the need for a separate isolated DC-DC bias module.
   - **Termination:** `120Ω` termination resistor placed at the trunk end of the isolated CAN bus.
-- **Application Layer Protocol:** The proposed CAN identifiers, payloads, and timing are documented in [`protocol/Microgrid_Communications_Specifications.md`](../protocol/Microgrid_Communications_Specifications.md) and [`protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md). These definitions still have unresolved conflicts; see [`docs/Software_Design_Constraints.md`](../docs/Software_Design_Constraints.md) before implementing application-level behavior.
+- **Application Layer Protocol:** The proposed CAN identifiers, payloads, and timing are documented in [`protocol/Microgrid_Communications_Specifications.md`](../protocol/Microgrid_Communications_Specifications.md) and [`protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md). The configured Boost 0 wire profile is frozen only for isolated simulator and compatible-firmware development; the wider contract still has unresolved conflicts. See [`docs/Software_Design_Constraints.md`](../docs/Software_Design_Constraints.md) before implementing other application profiles or production behavior.
 
 ---
 
