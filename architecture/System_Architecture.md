@@ -56,7 +56,7 @@ The microgrid is organized into four distinct electrical buses that separate bul
 
 ---
 
-The main bus supports the registry-assigned Battery, Boost, Generator, Grid Interface, Inverter, Display, and Solar Gateway instances. Solar scales behind up to 16 gateways, each serving at most 32 local child slots (512 total slots for the 500-node target). Gateways aggregate/filter child traffic upstream; they are not transparent repeaters. Main-bus IDs and Solar-local IDs may overlap numerically because the CAN segments are physically isolated. The preliminary gateway scope, dual-CAN prototype direction, and failure behavior are described in the [Solar Gateway Node design](./nodes/Solar_Gateway_Node.md); payloads and production hardware remain open.
+The main bus supports the registry-assigned Battery, Boost, Generator, Grid Interface, Inverter, Display, and Solar Gateway instances. Solar scales behind up to 16 gateways, each serving at most 32 local child slots (512 total slots for the 500-node target). Gateways aggregate/filter child traffic upstream; they are not transparent repeaters. Main-bus IDs and Solar-local IDs may overlap numerically because the CAN segments are physically isolated. The gateway's scope, MCU/board evaluation, commercial gateway screening, and failure behavior are described in the [Solar Gateway Node design](./nodes/Solar_Gateway_Node.md); payloads and production hardware remain open.
 
 ## 3. Electrical Bus Specifications
 

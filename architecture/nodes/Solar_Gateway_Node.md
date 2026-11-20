@@ -2,7 +2,7 @@
 
 ## Status
 
-Rough architecture proposal. The registry assignments and traffic periods referenced here are working allocations; the gateway payloads, electrical interface, and production hardware are not approved.
+Rough architecture proposal; gateway software has not been started. The registry assignments and traffic periods referenced here are working allocations. NUCLEO-G0B1RE is the preferred evaluation board and STM32G0B1RE is the leading cost-down MCU candidate, not a final production hardware approval. Gateway payloads and the electrical interface remain open.
 
 ## Purpose
 
@@ -45,17 +45,40 @@ Each physical CAN segment is separately terminated at its two ends and uses its 
 
 The gateway accepts traffic only for its configured gateway identity and known child slots. It validates destination, message class, and freshness before routing; broadcast child commands and arbitrary frame forwarding remain disabled unless a later protocol revision explicitly defines them.
 
-## Preliminary Hardware Recommendation
+## Hardware Evaluation and Recommendation
 
-### Prototype
+### MCU Candidates
 
-Use the existing NUCLEO-G474RE development platform as the MCU evaluation base, paired with an interface carrier that provides two electrically independent CAN paths: one for the main bus and one for the local Solar segment. Configure both for Classical CAN at the project's provisional `500 kbps` bitrate. The Nucleo board is a firmware-development platform, not the finished gateway electrical design.
+| Candidate | CAN capability | Trade-off and status |
+| --- | --- | --- |
+| STM32G0B1RE | Two independent FDCAN controllers; each can be configured for Classical CAN at `500 kbps` | Leading cost-down candidate. Cortex-M0+ at up to `64 MHz`, so it has less compute headroom than the G474RE. Validate the complete 32-child traffic workload before production selection. |
+| STM32G474RE | FDCAN operation in Classical CAN mode | Higher-performance Cortex-M4 at up to `170 MHz`; aligns with the module MCU family and remains a lower-risk fallback if G0B1 processing or memory headroom is insufficient. |
+| STM32G0C1RE | Potential G0-family alternative | Exact RE-package FDCAN count and pin availability were not verified; do not select without checking the orderable-part datasheet and pin table. |
 
-The STM32G474RE is a reasonable prototype MCU candidate because it is in the STM32G4 family already used by the module firmware and supports FDCAN operation in Classical CAN mode. Before committing a schematic, verify the selected package's independent FDCAN instances, pin mapping, clocks, and board-level pin availability against the current ST datasheet.
+The lower-cost MCU direction matches the gateway's supervisory workload in principle, but the reduced processing headroom is not yet demonstrated. Finalize the orderable MCU/package only after confirming two independent FDCAN instances, alternate-function pins, clock configuration, memory needs, and worst-case traffic behavior against the applicable ST datasheet.
+
+### Preferred Evaluation Board
+
+Use the **NUCLEO-G0B1RE** for initial gateway firmware work. It carries an STM32G0B1RET6 and provides onboard ST-LINK debugging/programming, USB, clocks, buttons/LED, and Arduino/Morpho headers. Both FDCAN signal pairs are available on headers:
+
+| Controller | RX | TX | Notes |
+| --- | --- | --- | --- |
+| FDCAN1 | PB8 | PB9 | Also mapped to Arduino D15/D14 |
+| FDCAN2 | PB5 | PB6 | Also mapped to Arduino D4/D10 |
+
+Reserve these pins for CAN when laying out a shield/carrier. Alternate pin mappings may overlap USB or other board functions; check the board schematic and MCU alternate-function table before wiring.
+
+The NUCLEO board is **not** a CAN bus interface board: it exposes MCU logic-level TX/RX, not CANH/CANL. It has no CAN transceivers, bus termination, or galvanic isolation. The prototype therefore needs a carrier with two separate Classical CAN transceiver channels, plus the isolated power/barriers required by the system's bus-isolation requirements. Select and verify the carrier components against the project's `>2.5 kVrms` isolation requirement; do not infer compliance from a generic isolation claim.
+
+A DigiKey listing showed the NUCLEO-G0B1RE at approximately `US$20.13` and in stock during research. This is a market snapshot, not a quote or guaranteed availability.
+
+### Compact Alternative
+
+The [WeAct STM32G0B1 Core Board](https://github.com/WeActStudio/WeActStudio.STM32G0B1CoreBoard) uses an STM32G0B1CBT6 and provides a compact USB-C core board with basic clocks, regulator, and headers. It has no onboard debugger, CAN transceivers, or galvanic isolation; add an ST-LINK-compatible probe and the same two-channel isolated CAN carrier. It is a possible lower-cost bench option, but the Nucleo is preferred for first bring-up because its debugger and ST board documentation reduce setup friction.
 
 ### Production Direction
 
-For a production candidate, carry the selected STM32G4 MCU onto a dedicated gateway PCB with:
+For a production candidate, carry the MCU selected after prototype measurements onto a dedicated gateway PCB with:
 
 - Separate CAN transceiver channels for the main bus and Solar-local bus.
 - Galvanic isolation appropriate to each bus boundary, including the isolated power required by the chosen transceiver implementation.
@@ -64,6 +87,18 @@ For a production candidate, carry the selected STM32G4 MCU onto a dedicated gate
 - Hardware provisions for reset, watchdog, debug, and clear bus/service indicators.
 
 Exact transceiver part numbers, isolation ratings, connector pinouts, enclosure, environmental range, and auxiliary-power conversion are schematic-level decisions. They require component datasheet review and electrical validation; this document is not a safety or compliance approval.
+
+### Commercial Gateway Screening
+
+The following purchasable products may help with bench evaluation, but none is currently qualified as a drop-in Solar Gateway. In particular, prove application-level child aggregation and verify the complete isolation path before considering any product for connection to the microgrid buses.
+
+| Product | Useful published capabilities | Fit gaps to resolve |
+| --- | --- | --- |
+| [Ixxat CAN@net NT 420](https://www.hms-networks.com/p/1-01-0332-42000-ixxat-can-net-nt-420) | Four CAN channels; `5 kbit/s`–`1 Mbit/s`; configurable filtering, ID translation, data mapping, multiplexing, and Lua action rules. | Stateful aggregation of values across multiple child frames into the reserved summary frames is not established by the available documentation. The product page's `1 kV DC` / `1 s` isolation statement does not establish compliance with this project's `>2.5 kVrms` requirement. Confirm both points with HMS. |
+| [PEAK PCAN-Router Pro FD](https://www.peak-system.com/products/hardware/routers-gateways/pcan-router-pro-fd/) | Six CAN channels; Classical CAN range includes `500 kbit/s`; user-programmable C/C++ logic is promising for custom aggregation. | Galvanic isolation was not specified in the product information reviewed. Verify or provide a qualified external isolation design. Price and current stock were not confirmed. |
+| [Enovation Controls CANBridge](https://enovationcontrols.com/products/canbridge/) | Configurable filtering and rate reduction between two CAN networks, including protocol-aware filtering. | Published features do not demonstrate arbitrary payload creation or multi-frame aggregation; bitrate, isolation, price, and current availability need vendor confirmation. |
+
+**Screening conclusion:** No reviewed off-the-shelf unit is verified to satisfy both the gateway's isolation requirement and its custom aggregation behavior. A custom STM32G0B1-based gateway with a purpose-designed isolated CAN carrier is the leading direction; commercial devices remain evaluation candidates only.
 
 ## Communication Strategy
 
@@ -101,6 +136,9 @@ The gateway shall use bounded receive and transmit queues. It shall not replay e
 
 ## Open Decisions
 
+- Prototype measurements to determine whether STM32G0B1RE has adequate processing and memory headroom or whether STM32G474RE is needed.
+- Final two-channel CAN transceiver/carrier design, including isolation rating, isolated power, connector pinout, and termination configuration.
+- Whether a commercial gateway can prove stateful child aggregation and meet the complete isolation requirement.
 - Final 8-byte child-command and routed-reply payloads, including addressing, correlation, expiry, retry, and acknowledgement behavior.
 - Summary and child-detail fields, units, scaling, freshness, and rotation/request policy.
 - Local Solar emergency identifiers and forwarded fault payload format.
@@ -114,5 +152,12 @@ The gateway shall use bounded receive and transmit queues. It shall not replay e
 - [Working CAN message definitions](../../protocol/CAN_Messages_Definitions.md)
 - [Microgrid communications specification](../../protocol/Microgrid_Communications_Specifications.md)
 - [Solar Node specification](./Solar_Node.md)
+- [ST STM32G0B1RE product page](https://www.st.com/en/microcontrollers-microprocessors/stm32g0b1re.html)
+- [ST STM32G0B1RE datasheet](https://www.st.com/resource/en/datasheet/stm32g0b1re.pdf)
+- [ST NUCLEO-G0B1RE board page](https://www.st.com/en/evaluation-tools/nucleo-g0b1re.html)
+- [NUCLEO-64 user manual](https://www.st.com/resource/en/user_manual/um2324-stm32-nucleo-64-boards-mb1360-stmicroelectronics.pdf)
+- [NUCLEO-G0B1RE board schematic](https://www.st.com/resource/en/schematic_pack/mb1360-g0b1re-c02_schematic.pdf)
+- [NUCLEO-G0B1RE DigiKey listing](https://www.digikey.com/en/products/detail/stmicroelectronics/NUCLEO-G0B1RE/14317287)
+- [WeAct STM32G0B1 Core Board and hardware files](https://github.com/WeActStudio/WeActStudio.STM32G0B1CoreBoard)
 - [ST STM32G474RE product and datasheet page](https://www.st.com/en/microcontrollers-microprocessors/stm32g474re.html)
 - [ST NUCLEO-G474RE evaluation board](https://www.st.com/en/evaluation-tools/nucleo-g474re.html)
