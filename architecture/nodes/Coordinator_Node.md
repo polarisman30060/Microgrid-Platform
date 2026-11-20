@@ -59,8 +59,8 @@ The Coordinator Node serves as the central supervisory intelligence of the micro
 
 ## Coordinator Interaction
 
-- Supervises functional nodes through the shared 11-bit CAN network; nodes broadcast telemetry and heartbeats
-- Monitors `100 ms` node heartbeats and flags nodes offline after `500 ms` (5 missed heartbeats)
+- Supervises main-bus nodes through the 11-bit CAN network; Solar children communicate on gateway-local segments
+- Uses type-specific missing-node deadlines: `500 ms` for Boost/Solar gateway, `1 s` for Battery/Inverter, and `3 s` for Generator/Grid/Display; each gateway monitors Solar children at `500 ms`
 
 ## Fault Conditions
 

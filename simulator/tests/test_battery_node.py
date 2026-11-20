@@ -18,8 +18,17 @@ from microgrid_simulator.protocol import (
 )
 
 
-def command(action: int, crc_valid: bool = True) -> CanFrame:
-    data = bytes((action, 0, 0, 0, 0, 0, 0))
+def command(
+    action: int,
+    crc_valid: bool = True,
+    target_voltage_raw: int = 0,
+    current_limit_raw: int = 0,
+    secondary_limit_raw: int = 0,
+) -> CanFrame:
+    data = bytes((action,))
+    data += target_voltage_raw.to_bytes(2, "little")
+    data += current_limit_raw.to_bytes(2, "little", signed=True)
+    data += secondary_limit_raw.to_bytes(2, "little", signed=True)
     crc = crc8_sae_j1850(data) if crc_valid else crc8_sae_j1850(data) ^ 0xFF
     return CanFrame(BATTERY_COMMAND_ID, data + bytes((crc,)))
 
@@ -50,11 +59,29 @@ class BatteryNodeTests(unittest.TestCase):
 
         self.assertEqual(
             [frame.identifier for frame in node.frames_due(50)],
-            [BATTERY_FAST_TELEMETRY_ID],
+            [],
         )
         self.assertEqual(
             [frame.identifier for frame in node.frames_due(100)],
+            [BATTERY_FAST_TELEMETRY_ID],
+        )
+        self.assertEqual(
+            [frame.identifier for frame in node.frames_due(250)],
             [BATTERY_HEARTBEAT_ID, BATTERY_FAST_TELEMETRY_ID],
+        )
+        self.assertEqual(
+            [frame.identifier for frame in node.frames_due(1000)],
+            [BATTERY_HEARTBEAT_ID, BATTERY_FAST_TELEMETRY_ID, BATTERY_SLOW_TELEMETRY_ID],
+        )
+
+    def test_identity_is_not_periodically_retransmitted(self):
+        node = BatteryNode()
+        node.start(0)
+        node.frames_due(0)
+
+        self.assertNotIn(
+            BATTERY_IDENTITY_ID,
+            [frame.identifier for frame in node.frames_due(1000)],
         )
 
     def test_valid_precharge_then_enable_commands_change_simulated_state(self):
@@ -105,6 +132,32 @@ class BatteryNodeTests(unittest.TestCase):
 
         self.assertEqual(acks, [])
         self.assertIn("invalid CRC", events[0].message)
+
+    def test_noop_updates_setpoints_without_sending_ack(self):
+        node = BatteryNode()
+        node.start(0)
+
+        acks, events = node.handle_frame(
+            command(0, target_voltage_raw=1920, current_limit_raw=125, secondary_limit_raw=-20),
+            10,
+        )
+
+        self.assertEqual(acks, [])
+        self.assertEqual(node.target_voltage_setpoint, 1920)
+        self.assertEqual(node.charge_current_limit_deciamps, 125)
+        self.assertEqual(node.discharge_current_limit_deciamps, -20)
+        self.assertIn("no ACK", events[0].message)
+
+    def test_reset_command_clears_a_fault_and_is_acknowledged(self):
+        node = BatteryNode()
+        node.start(0)
+        node.inject_fault()
+
+        acks, _ = node.handle_frame(command(5), 10)
+
+        self.assertEqual(acks[0].data[1], ACK_ACCEPTED)
+        self.assertEqual(node.local_state, 2)
+        self.assertEqual(node.fault_summary, 0)
 
     def test_node_loss_suppresses_frames_until_restored(self):
         node = BatteryNode()

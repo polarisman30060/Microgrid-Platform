@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .registry import main_bus_global_node_id
+
 COORDINATOR_HEARTBEAT_ID = 0x100
-BATTERY_COMMAND_ID = 0x130
+BATTERY_GLOBAL_NODE_ID = main_bus_global_node_id(0x01, 0)
+BATTERY_COMMAND_ID = 0x120 + BATTERY_GLOBAL_NODE_ID
 BATTERY_FAST_TELEMETRY_ID = 0x200
 BATTERY_SLOW_TELEMETRY_ID = 0x210
-BATTERY_HEARTBEAT_ID = 0x610
-BATTERY_IDENTITY_ID = 0x710
-BATTERY_ACK_ID = 0x750
+BATTERY_HEARTBEAT_ID = 0x600 + BATTERY_GLOBAL_NODE_ID
+BATTERY_IDENTITY_ID = 0x700 + BATTERY_GLOBAL_NODE_ID
+BATTERY_ACK_ID = 0x760 + BATTERY_GLOBAL_NODE_ID - 1
 
 NODE_TYPE_BATTERY = 0x01
 BATTERY_INSTANCE = 0x00
@@ -137,7 +140,8 @@ def decode_coordinator_heartbeat(frame: CanFrame) -> CoordinatorHeartbeat:
     )
 
 
-def encode_battery_ack(
+def encode_node_ack(
+    identifier: int,
     action: int,
     status: int,
     local_state: int,
@@ -146,4 +150,16 @@ def encode_battery_ack(
 ) -> CanFrame:
     data = bytes((action, status, local_state, fault_summary))
     data += (uptime_ms & 0xFFFFFFFF).to_bytes(4, byteorder="little")
-    return CanFrame(BATTERY_ACK_ID, data)
+    return CanFrame(identifier, data)
+
+
+def encode_battery_ack(
+    action: int,
+    status: int,
+    local_state: int,
+    fault_summary: int,
+    uptime_ms: int,
+) -> CanFrame:
+    return encode_node_ack(
+        BATTERY_ACK_ID, action, status, local_state, fault_summary, uptime_ms
+    )

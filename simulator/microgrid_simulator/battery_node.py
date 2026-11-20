@@ -19,25 +19,16 @@ from .protocol import (
     encode_battery_ack,
 )
 
-NODE_STATE_NAMES = {
-    0: "Off",
-    1: "Startup",
-    2: "Ready",
-    3: "Running",
-    4: "Degraded Autonomous",
-    5: "Fault",
-    6: "Lockout",
-}
+from .module_node import NODE_STATE_NAMES
 
 ACK_ACCEPTED = 0x00
 ACK_REJECTED_INVALID_STATE = 0x01
 ACK_REJECTED_LOCAL_FAULT = 0x02
 ACK_REJECTED_PRECHARGE = 0x03
 
-HEARTBEAT_PERIOD_MS = 100
-FAST_TELEMETRY_PERIOD_MS = 50
-SLOW_TELEMETRY_PERIOD_MS = 250
-IDENTITY_PERIOD_MS = 1000
+HEARTBEAT_PERIOD_MS = 250
+FAST_TELEMETRY_PERIOD_MS = 100
+SLOW_TELEMETRY_PERIOD_MS = 1000
 COORDINATOR_TIMEOUT_MS = 500
 COORDINATOR_TIMEOUT_WARNING = 1 << 3
 
@@ -48,7 +39,7 @@ class NodeEvent:
 
 
 class BatteryNode:
-    """One configured Battery Node, instance 0 (GlobalNodeID 0x10)."""
+    """One configured Battery Node, instance 0 (GlobalNodeID 0x01)."""
 
     def __init__(self) -> None:
         self.serial_number = 0x00001000
@@ -81,6 +72,10 @@ class BatteryNode:
         self.heartbeat_counter = 0
         self.coordinator_heartbeat: tuple[int, int, int] | None = None
         self.last_command: tuple[int, int] | None = None
+        self.last_control: tuple[int, int, int, int, int] | None = None
+        self.target_voltage_setpoint = 0
+        self.charge_current_limit_deciamps = 0
+        self.discharge_current_limit_deciamps = 0
         self._next_frame_ms: dict[str, int] = {}
         self._coordinator_timeout_latched = False
 
@@ -165,8 +160,14 @@ class BatteryNode:
             return []
 
         frames: list[CanFrame] = []
+        if (
+            "identity" in self._next_frame_ms
+            and now_ms >= self._next_frame_ms["identity"]
+        ):
+            frames.append(self._identity_frame(now_ms))
+            self._next_frame_ms.pop("identity", None)
+
         periods = (
-            ("identity", IDENTITY_PERIOD_MS, self._identity_frame),
             ("heartbeat", HEARTBEAT_PERIOD_MS, self._heartbeat_frame),
             ("fast", FAST_TELEMETRY_PERIOD_MS, self._fast_telemetry_frame),
             ("slow", SLOW_TELEMETRY_PERIOD_MS, self._slow_telemetry_frame),
@@ -201,8 +202,23 @@ class BatteryNode:
 
         data = frame.data
         action = data[0]
+        self.last_control = (
+            action,
+            int.from_bytes(data[1:3], "little"),
+            int.from_bytes(data[3:5], "little", signed=True),
+            int.from_bytes(data[5:7], "little", signed=True),
+            data[7],
+        )
         if crc8_sae_j1850(data[:7]) != data[7]:
             events.append(NodeEvent("Dropped Battery command with invalid CRC; no ACK sent."))
+            return responses, events
+
+        self.target_voltage_setpoint = self.last_control[1]
+        self.charge_current_limit_deciamps = self.last_control[2]
+        self.discharge_current_limit_deciamps = self.last_control[3]
+        if action == 0x00:
+            self.last_command = (action, ACK_ACCEPTED)
+            events.append(NodeEvent("Battery accepted no-op setpoint update; no ACK is sent."))
             return responses, events
 
         ack_status = self._apply_command(action)
@@ -251,8 +267,9 @@ class BatteryNode:
             self.main_contactor_closed = False
             self.precharge_closed = False
             return ACK_ACCEPTED
-        if action == 0x05 and self.local_state in (5, 6):
-            return ACK_REJECTED_LOCAL_FAULT
+        if action == 0x05:
+            self.clear_fault_locally()
+            return ACK_ACCEPTED
         return ACK_REJECTED_INVALID_STATE
 
     def _identity_frame(self, _now_ms: int) -> CanFrame:

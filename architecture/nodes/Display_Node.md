@@ -8,7 +8,7 @@ The Display Node provides the human-machine interface (HMI) for the microgrid pl
 
 - Render real-time energy flow across the 96VDC Energy Bus, 380VDC Inverter Bus, and AC outputs
 - Display per-module status, Node IDs, serial numbers, battery State of Charge, and active fault alarms
-- Provide operator controls for system commissioning, node classification (`Required`, `Optional`, `Ignored`), and remote provisioning of inaccessible Solar MPPT nodes
+- Provide operator controls for system commissioning, node classification (`Required`, `Optional`, `Ignored`), and requested provisioning of inaccessible Solar MPPT nodes through their segment gateway; gateway routing/payload behavior remains to be defined
 - Provide operator-initiated software circuit-breaker reset controls for Inverter Nodes
 - Serve a mirrored diagnostic and control interface over local Wi-Fi
 

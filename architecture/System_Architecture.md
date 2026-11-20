@@ -46,11 +46,17 @@ The microgrid is organized into four distinct electrical buses that separate bul
 
 -------------------------------------------------------------------------  COMMON AUXILIARY LIFELINE
   30V / 50kHz High-Freq AC Lifeline & 24 VDC Contactor Power Rail          Feeds Isolated Local Supplies
--------------------------------------------------------------------------  ISOLATED CAN 2.0B BUS (500 kbps)
-  Master Coordinator / HMI  <===>  All Local Node Controllers              Telemetry, Trim & State Sync
+--------------------------------------------------------------------------  MAIN CAN 2.0B BUS (500 kbps)
+  Master Coordinator / HMI  <===>  Main-bus Nodes + Solar Gateways         Telemetry, Trim & State Sync
+                                      |
+                           +----------+----------+
+                           | Isolated local CAN  |
+                           | Solar children 0-31 |
 ```
 
 ---
+
+The main bus supports the registry-assigned Battery, Boost, Generator, Grid Interface, Inverter, Display, and Solar Gateway instances. Solar scales behind up to 16 gateways, each serving at most 32 local child slots (512 total slots for the 500-node target). Gateways aggregate/filter child traffic upstream; they are not transparent repeaters. Main-bus IDs and Solar-local IDs may overlap numerically because the CAN segments are physically isolated. The gateway's scope, MCU/board evaluation, commercial gateway screening, and failure behavior are described in the [Solar Gateway Node design](./nodes/Solar_Gateway_Node.md); payloads and production hardware remain open.
 
 ## 3. Electrical Bus Specifications
 
@@ -59,7 +65,7 @@ The microgrid is organized into four distinct electrical buses that separate bul
 | **Primary LV DC Energy Bus** | `96.0 VDC` | `91.2 V - 100.8 V` (+/- 5% normal)<br>`84.0 V - 108.0 V` (fault bounds) | Common energy aggregation bus linking solar, batteries, generator, grid charger, and boost inputs. | Precharge-protected copper busbars, per-module DC contactors, hardware OV/UV comparators, dedicated bulk capacitor bank. |
 | **High-Voltage (HV) DC Link** | `380.0 VDC` | `360.0 V - 400.0 V` (normal)<br>`340.0 V - 420.0 V` (trip bounds) | Stiff DC source feeding transformerless 120 VAC and 240 VAC split-phase inverter output stages. | Soft-start via boost stage, active/bleeder discharge path on shutdown, fast hardware overvoltage crowbar/gate-inhibit. |
 | **Auxiliary Power Lifeline** | `30 V` HF AC (`50 kHz`) / `24 VDC` Local | Continuous black-start & ride-through | Powers node daughter cards, isolated gate-driver supplies, local displays, and 24 VDC contactor coils. | Transformer-coupled galvanic isolation at every node tap; independent of main 96 V / 380 V bus contactors. |
-| **Control & Telemetry Bus** | `CAN 2.0B` (`500 kbps`) | Differential `5 V` / `3.3 V` isolated | Carries state commands, slow droop trims, fast fault broadcasts, and HMI telemetry (`0x000-0x7FF`). | Galvanically isolated CAN transceivers (`> 2.5 kVrms`), `120 Ohm` end terminations, automatic Bus-Off recovery. |
+| **Control & Telemetry Bus** | Main `CAN 2.0B` bus at `500 kbps`, plus isolated Solar segments | Differential `5 V` / `3.3 V` isolated | Carries supervisory commands, module telemetry, fault reports, and HMI status; Solar child traffic is aggregated by gateways. | Galvanically isolated CAN transceivers (`> 2.5 kVrms`), `120 Ohm` end terminations per physical segment, bounded Bus-Off recovery. |
 
 ---
 
@@ -143,7 +149,7 @@ System stability and safety rely on four decoupled time horizons so communicatio
 | **Layer 0: Hardware Fault Protection** | Analog Comparators & MCU `HRTIM` Fault Inputs | `< 1 us` | Direct hardware overcurrent, desaturation, and bus overvoltage comparators immediately shut off gate-driver PWM outputs without waiting for CPU interrupts. |
 | **Layer 1: Fast Inner Loops** | Local Node MCU (`STM32` ISR / DMA) | `25 us - 100 us` (`10-40 kHz`) | Inductor current regulation, active phase current balancing across interleaved legs, and cycle-by-cycle AC sinusoidal current synthesis. |
 | **Layer 2: Local Outer Loops & Droop** | Local Node MCU | `1 ms - 10 ms` (`100 Hz - 1 kHz`) | Bus voltage regulation, MPPT perturbation, thermal derating curves, and autonomous V-I droop fallback if Coordinator heartbeat times out (`> 500 ms`). |
-| **Layer 3: Supervisory Dispatch** | Master Coordinator (`ESP32-S3` over CAN) | `20 ms - 500 ms` (`2 Hz - 50 Hz`) | Precharge sequencing, secondary voltage trim, parallel module load sharing, SoC reserve management, generator auto-start, and UI telemetry. |
+| **Layer 3: Supervisory Dispatch** | Master Coordinator (`ESP32-S3` over CAN) | On change to `500 ms`; conditional `20 ms` Boost balancing | Precharge sequencing, secondary voltage trim, parallel module load sharing, SoC reserve management, generator auto-start, and UI telemetry. Routine `20 ms` Inverter commands are not planned. |
 
 ---
 
@@ -169,4 +175,5 @@ System stability and safety rely on four decoupled time horizons so communicatio
 * **Operational States & Fault Transitions:** See [`architecture/System_State_MAchine.md`](./System_State_MAchine.md)
 * **Supervisory Logic & HMI Scope:** See [`architecture/Coordinator_Functions.md`](./Coordinator_Functions.md)
 * **CAN Frame IDs, Payloads & Timings:** See [`protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md)
+* **Solar Gateway Scope & Preliminary Hardware:** See [`architecture/nodes/Solar_Gateway_Node.md`](./nodes/Solar_Gateway_Node.md)
 * **Individual Hardware Module Specs:** See node specifications under `nodes/`

@@ -13,7 +13,7 @@ Modular residential microgrid architecture based on:
 
 Architecture Development
 
-The Coordinator firmware now transmits the normal coordinator heartbeat and parses the proposed Battery 0 identity, heartbeat, and telemetry frames. The configured Boost 0 CAN profile is frozen for isolated Nucleo simulator and compatible-firmware development; broader CAN behavior remains draft. The standalone Nucleo Boost 0 firmware project is in [firmware/nucleo_boost_simulator/](firmware/nucleo_boost_simulator/) and its PlatformIO build passes; board flashing and CAN-bench tests are pending. Coordinator command transmission and Boost frame support remain future work. See the [Coordinator CAN implementation guide](docs/Coordinator_CAN_Implementation.md).
+The Coordinator firmware transmits its normal heartbeat and parses Battery 0 identity, heartbeat, and telemetry using the working CAN registry. Boost 0 has been reopened; the registry assigns unique main-bus GlobalNodeIDs and places Solar children on isolated gateway-local segments. Solar gateway payloads and physical gateway implementation remain open. All Nucleo simulator projects are grouped under [firmware/nucleo_simulators/](firmware/nucleo_simulators/), with a separate directory for each module. Board flashing and CAN-bench tests are pending. Coordinator support for additional node types remains future work. See the [Coordinator CAN implementation guide](docs/Coordinator_CAN_Implementation.md).
 
 ## Major Components
 

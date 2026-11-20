@@ -47,7 +47,7 @@ Every functional node (`0x100–0x6FF`) implements the following local state mac
 
 1. **OFF:** Module unpowered.
 2. **STARTUP:** MCU initializes clocks, ADCs, `HRTIM1` safe-off states, isolated CAN transceiver, and internal subsystem links (e.g., DALY BMS UART/CAN).
-3. **READY:** Self-test passed, contactors open (`Q_PRE = OPEN`, `Q_ISOL = OPEN`), transmitting `100 ms` heartbeats, awaiting Coordinator command.
+3. **READY:** Self-test passed, contactors open (`Q_PRE = OPEN`, `Q_ISOL = OPEN`), transmitting the node-type-specific heartbeat, awaiting Coordinator command.
 4. **RUNNING:** Pre-charge sequence completed (`Q_ISOL = CLOSED`), active power conversion or harvesting enabled under local closed-loop control and Coordinator dispatch limits.
 5. **DEGRADED:** Coordinator heartbeat timeout (`>500 ms`) or local thermal derating active:
    - **Battery Nodes:** Hold `96VDC` bus regulation within safe voltage droop bounds using last valid limits.

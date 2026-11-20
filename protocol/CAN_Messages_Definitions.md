@@ -1,7 +1,7 @@
 # CAN Bus Message & Protocol Specification
 
-Version: 1.0
-Status: Draft overall. The configured Boost instance 0 communications profile in Section 3.6.1 is frozen for isolated simulator and compatible-firmware development only. Other profiles and project-wide protocol behavior remain draft; this does not approve electrical behavior or production deployment.
+Version: 1.1
+Status: Working CAN ID registry and provisional timing schedule approved for implementation. Payloads for Solar gateway routing/aggregation, local Solar emergency reporting, provisioning discovery, and several application behaviors remain draft. Boost 0 has been reopened and is no longer frozen. This does not approve electrical behavior or production deployment.
 
 ## 1. Physical & Data-Link Layer
 
@@ -15,30 +15,50 @@ Status: Draft overall. The configured Boost instance 0 communications profile in
 
 ## 2. Identifier Allocation Map (`0x000` – `0x7FF` Standard 11-bit)
 
-| ID Range | Priority | Category | Direction | Cycle Time |
+| ID Range | Priority | Category | Direction | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `0x001` – `0x01F` | Highest | **Emergency / Hardware Trips** | Any Node -> Broadcast | Event-driven (`< 2 ms`) |
-| `0x100` – `0x11F` | Very High | **Coordinator Heartbeat & Global State** | Coordinator -> Broadcast | `100 ms` / Event |
-| `0x120` – `0x1FF` | High | **Control Setpoints & Balancing Tokens** | Coordinator -> Specific/Group | `20 ms` (Boost/Inv) / `100 ms` |
-| `0x200` – `0x2FF` | Medium-High | **Battery / BMS Node Telemetry** | Battery Nodes -> Broadcast | `50 ms` Fast / `250 ms` Slow |
-| `0x300` – `0x3FF` | Medium | **HV Boost Converter Telemetry** | Boost Nodes -> Broadcast | `50 ms` Fast / `250 ms` Slow |
-| `0x400` – `0x4FF` | Medium | **Solar MPPT, Generator & Grid Telemetry** | Source Nodes -> Broadcast | `50 ms` Fast / `250 ms` Slow |
-| `0x500` – `0x5FF` | Medium-Low | **AC Output / Breaker Module Telemetry** | AC Nodes -> Broadcast | `50 ms` Fast / `250 ms` Slow |
-| `0x600` – `0x6FF` | Low | **Node Heartbeats & Local State Status** | All Nodes -> Broadcast | `100 ms` |
-| `0x700` – `0x7FF` | Lowest | **Node Identity, Provisioning & Command Acks** | Bidirectional | `1000 ms` / On-demand |
+| `0x001` – `0x047` | Highest | **Main-bus Emergency / Hardware Faults** | Main-bus nodes -> Broadcast | ID is the sending node's `GlobalNodeID` |
+| `0x048` – `0x0FF` | Highest | **Reserved emergency IDs** | Reserved | |
+| `0x100` | Very High | **Coordinator Heartbeat & Global State** | Coordinator -> Broadcast | `100 ms` |
+| `0x120` | High | **Broadcast Control** | Coordinator -> Broadcast | Payload/action use remains draft |
+| `0x121` – `0x167` | High | **Addressed Main-bus Control** | Coordinator -> Node | `0x120 + GlobalNodeID` |
+| `0x168` – `0x19F` | High | **Reserved control IDs** | Reserved | |
+| `0x1A0` – `0x1AF` | High | **Solar gateway child-control routing** | Coordinator -> Gateway | Payload is not yet defined |
+| `0x1B0` – `0x1BF` | High | **Solar gateway routed replies** | Gateway -> Coordinator | Reply/ACK payload is not yet defined |
+| `0x1C0` – `0x1FF` | High | **Reserved control IDs** | Reserved | |
+| `0x200` – `0x2FF` | Medium-High | **Battery / BMS telemetry** | Battery Nodes -> Broadcast | Fast `100 ms`, slow `1 s` |
+| `0x300` – `0x3FF` | Medium | **Boost telemetry** | Boost Nodes -> Broadcast | `50 ms` |
+| `0x400` – `0x4FF` | Medium | **Source and Solar gateway telemetry** | Nodes -> Broadcast | Solar child IDs are local to isolated segments |
+| `0x500` – `0x5FF` | Medium-Low | **Inverter telemetry** | Inverter Nodes -> Broadcast | `200 ms` |
+| `0x600` – `0x6FF` | Low | **Node Heartbeats** | Nodes -> Broadcast | Type-specific period; see Section 4 |
+| `0x700` – `0x7FF` | Lowest | **Identity, Provisioning & ACKs** | Bidirectional | Startup/on-request identity; ACK on state change |
+
+The allocation table describes the main CAN bus unless explicitly marked as gateway-local. Solar child identifiers may numerically overlap main-bus identifiers because each Solar segment is physically isolated and raw child frames are not transparently bridged.
 
 ### Node Addressing & Type Codes
 
-* **`Node_Type` Enum:** `0x01`=Battery, `0x02`=Boost, `0x03`=Solar_MPPT, `0x04`=Generator, `0x05`=Grid_Interface, `0x06`=AC_Inverter, `0x07`=Display, `0x08`=Coordinator.
-* **`Instance` (`0x0`–`0xF`):** Local unit index within a functional class (e.g., Boost `0` = Primary Boost, Boost `1`–`3` = Secondary Boosts).
-* **`GlobalNodeID` (`0x01`–`0x7F`):** Unique system-wide node offset (`(Node_Type << 4) | Instance`) used in `0x120+`, `0x600+`, `0x700+`, and `0x740+` frames so no two nodes ever share a TX identifier.
+* **`Node_Type` Enum:** `0x01`=Battery, `0x02`=Boost, `0x03`=Solar_MPPT, `0x04`=Generator, `0x05`=Grid_Interface, `0x06`=AC_Inverter, `0x07`=Display, `0x08`=Coordinator, `0x09`=Solar_Segment_Gateway.
+* **`Instance`:** Registry-local index, zero-based; it is not packed with `Node_Type` to form an address.
+* **Main-bus `GlobalNodeID` allocations:**
+
+| Node type | Instances | GlobalNodeID range |
+| --- | ---: | --- |
+| Battery | 0–4 | `0x01`–`0x05` |
+| Boost | 0–4 | `0x06`–`0x0A` |
+| Generator | 0–1 | `0x0B`–`0x0C` |
+| Grid Interface | 0–1 | `0x0D`–`0x0E` |
+| Inverter | 0–39 | `0x0F`–`0x36` |
+| Display | 0 | `0x37` |
+| Solar Segment Gateway | 0–15 | `0x38`–`0x47` |
+
+`0x48`–`0x7F` remain reserved. Solar MPPT children do not have a main-bus `GlobalNodeID`: each uses a gateway instance and local slot `0`–`31`, with local CAN address `slot + 1`. Sixteen gateways provide 512 local slots for the 500-Solar-node target. Battery counts above five require a future integration layer and are not allocated here. The Coordinator retains type `0x08`.
 
 ---
 
 ## 3. Core Frame Definitions
 
-### 3.1 `0x001 + (Node_Type & 0x0F)` — `EMERGENCY_FAULT` (DLC: 8, Event-Driven)
-Broadcast immediately upon any local hardware fault latch.
+### 3.1 Main-bus `GlobalNodeID` — `EMERGENCY_FAULT` (DLC: 8, Event-Driven)
+On the main bus, the identifier equals the sending node's `GlobalNodeID` (`0x001`–`0x047`) and is broadcast immediately upon a local hardware fault latch. Gateway-local Solar emergency IDs have not yet been assigned. If a gateway forwards a child fault upstream, its own unique emergency ID identifies the gateway; the exact child-slot payload encoding remains open.
 
 * **Byte 0:** `GlobalNodeID` (Identifies exact faulting unit)
 * **Byte 1:** `Fault_State` (`0x05` = Recoverable Fault, `0x06` = Latched Lockout)
@@ -72,8 +92,10 @@ Master keep-alive and global supervisory state broadcast.
 
 ---
 
-### 3.3 `0x120 + GlobalNodeID` — `CMD_NODE_CONTROL` (DLC: 8, `20 ms` Boost/Inv / `100 ms` Others)
-Supervisory dispatch setpoints and current-balancing tokens sent by Coordinator to a specific node (`GlobalNodeID = 0x00` for global broadcast).
+### 3.3 Main-bus `0x120 + GlobalNodeID` — `CMD_NODE_CONTROL` (DLC: 8)
+Supervisory dispatch setpoints sent by the Coordinator to one main-bus node. `0x120` is reserved for broadcast control; addressed node IDs are `0x121`–`0x167`. Solar children use `0x120 + LocalAddress` only on their isolated gateway segment. Solar child-control routing through gateway IDs `0x1A0`–`0x1AF` is reserved; its compact payload and paired reply behavior are not defined yet.
+
+The provisional command schedule is event/on-change based for ordinary nodes. Boost balancing updates may use `20 ms` only while active parallel balancing requires them. Inverter commands are sent on change, or at most every `250 ms` when justified; routine `20 ms` inverter commands are not planned.
 
 * **Byte 0:** `Command_Action`
   * `0x00` = No-op / Hold Current Mode
@@ -91,7 +113,7 @@ Supervisory dispatch setpoints and current-balancing tokens sent by Coordinator 
 
 ---
 
-### 3.4 `0x200 + Instance` — `TELEM_BATTERY_FAST` (DLC: 8, `50 ms` Periodic)
+### 3.4 `0x200 + Instance` — `TELEM_BATTERY_FAST` (DLC: 8, `100 ms` Periodic)
 
 * **Bytes 0–1 (`uint16`):** `Bus_Side_Voltage` (`0.05 V/bit`)
 * **Bytes 2–3 (`uint16`):** `Pack_Side_Voltage` (`0.05 V/bit`)
@@ -108,7 +130,7 @@ Supervisory dispatch setpoints and current-balancing tokens sent by Coordinator 
 
 ---
 
-### 3.5 `0x210 + Instance` — `TELEM_BATTERY_SLOW` (DLC: 8, `250 ms` Periodic)
+### 3.5 `0x210 + Instance` — `TELEM_BATTERY_SLOW` (DLC: 8, `1 s` Periodic)
 
 * **Bytes 0–1 (`uint16`):** `Min_Cell_Voltage_mV` (`1 mV/bit`)
 * **Bytes 2–3 (`uint16`):** `Max_Cell_Voltage_mV` (`1 mV/bit`)
@@ -130,39 +152,41 @@ Supervisory dispatch setpoints and current-balancing tokens sent by Coordinator 
   * Bit 6: Role (`1`=Designated Primary Boost, `0`=Secondary Boost)
   * Bit 7: Autonomous Droop Mode Active
 
-### 3.6.1 Frozen Boost Instance 0 Communications Profile
+### 3.6.1 Reopened Boost Instance 0 Communications Profile
 
-This configured-node profile is frozen for the Nucleo-G474RE communications simulator and compatible Coordinator development. It freezes the wire contract for **Boost instance 0 only**; it does not define or validate power-stage control, protection, precharge physics, or production commissioning. The simulator shall not energize or connect to power-stage hardware.
+Boost instance 0 was previously treated as frozen; that decision has been reopened to apply the system-wide registry. This section records its current working IDs and existing draft behavior; it is not a frozen wire contract and does not define or validate power-stage control, protection, precharge physics, or production commissioning.
 
-Profile revision: `0` (frozen 2026-11-19; revision is documentation-only and is not transmitted on CAN).
+Profile revision: `1` (working registry revision; revision is documentation-only and is not transmitted on CAN).
 
-Boost instance 0 has `GlobalNodeID = (0x02 << 4) | 0 = 0x20` and uses only ordinary microgrid frames:
+Boost instance 0 has registry-assigned `GlobalNodeID = 0x06` and uses ordinary microgrid frames:
 
 | Frame | CAN ID | Direction | Period / handling |
 | --- | --- | --- | --- |
 | `COORD_HEARTBEAT` | `0x100` | Coordinator -> bus | Every `100 ms` |
-| `CMD_NODE_CONTROL` | `0x140` | Coordinator -> Boost 0 | Coordinator request; `20 ms` setpoint cadence when active |
+| `CMD_NODE_CONTROL` | `0x126` | Coordinator -> Boost 0 | `20 ms` only during active parallel balancing |
 | `TELEM_BOOST_FAST` | `0x300` | Boost 0 -> bus | Every `50 ms` |
-| `NODE_HEARTBEAT` | `0x620` | Boost 0 -> bus | Every `100 ms` |
-| `NODE_IDENTITY` | `0x720` | Boost 0 -> bus | At startup and every `1000 ms` |
-| `CMD_ACK` | `0x760` | Boost 0 -> bus | Event-driven for non-no-op control actions |
+| `NODE_HEARTBEAT` | `0x606` | Boost 0 -> bus | Every `100 ms` |
+| `NODE_IDENTITY` | `0x706` | Boost 0 -> bus | At startup/on request |
+| `CMD_ACK` | `0x765` | Boost 0 -> bus | Event-driven for non-no-op control actions |
 
-All frames are standard 11-bit Classical CAN data frames at `500 kbit/s`, with exactly 8 data bytes and little-endian multi-byte fields. Payload layouts and scaling are those in Sections 3.2, 3.3, 3.6, 3.11, 3.12, and 3.13. This profile uses `CMD_ACK = 0x740 + GlobalNodeID`; for Boost 0 this is `0x760` and does not overlap the fixed provisioning identifier `0x780`.
+All frames are standard 11-bit Classical CAN data frames at `500 kbit/s`, with exactly 8 data bytes and little-endian multi-byte fields. Payload layouts and scaling are those in Sections 3.2, 3.3, 3.6, 3.11, 3.12, and 3.13. Main-bus ACK IDs use `0x760 + GlobalNodeID - 1`.
 
 The following command and acknowledgement rules apply to this profile:
 
-* `CMD_NODE_CONTROL` is accepted only at `0x140` as a standard data frame with DLC 8 and a valid CRC-8/SAE-J1850 over bytes 0–6 (`poly=0x1D`, `init=0xFF`, `refin=false`, `refout=false`, `xorout=0xFF`). A bad-CRC frame is dropped with no ACK. The receiver increments its local CRC-error counter.
+* `CMD_NODE_CONTROL` is accepted only at `0x126` as a standard data frame with DLC 8 and a valid CRC-8/SAE-J1850 over bytes 0–6 (`poly=0x1D`, `init=0xFF`, `refin=false`, `refout=false`, `xorout=0xFF`). A bad-CRC frame is dropped with no ACK. The receiver increments its local CRC-error counter.
 * Action `0x00` is a no-op/hold-current-mode setpoint update and does not generate an ACK. Actions `0x01`, `0x02`, `0x03`, and `0x05` are supported Boost actions. Actions `0x04`, `0x06`, and `0x07` are not applicable to Boost and receive `Rejected_Invalid_State`.
 * Each supported state-changing action produces one `CMD_ACK` with the echoed action, the defined ACK status, current local state, fault summary, and local uptime. The Coordinator allows only one state-changing command in flight to this node and correlates the response by source ID and echoed action. This profile does not specify automatic application-level retries; a missing ACK is an unknown command outcome, not success.
 * The simulator may model acceptance, rejection, and resulting telemetry/state for these actions, but must never drive contactors, PWM, or other power-stage controls. Its simulated measurements and state transitions are not evidence of electrical operation or safety.
-* Boost 0 is statically configured as `GlobalNodeID 0x20`. Remote provisioning and unconfigured-node discovery are not part of this profile. The simulator does not transmit `EMERGENCY_FAULT`; unique system-wide emergency identifiers remain unresolved.
+* Boost 0 is statically configured as `GlobalNodeID 0x06`. Remote provisioning and unconfigured-node discovery are not part of this profile. The simulator does not transmit `EMERGENCY_FAULT`.
 * For the simulator identity frame, `Power_Stage_Profile_ID = 0x00` means no physical power stage is attached. Capability flags are zero. The serial number must be a configured, unique 32-bit test serial; it must not be copied to another simulated node.
 
-This profile does not freeze other Boost instances, the global emergency-ID allocation, remote provisioning, project-wide retry/version rules, or electrical state-machine behavior. Changes to these require corresponding updates to this specification, the Coordinator, simulator firmware, and conformance tests.
+This working profile does not freeze other Boost instances, project-wide retry/version rules, or electrical state-machine behavior. Changes require corresponding updates to this specification, the Coordinator, simulator firmware, and conformance tests.
 
 ---
 
-### 3.7 `0x400 + Instance` — `TELEM_SOLAR_MPPT` (DLC: 8, `100 ms` Periodic)
+### 3.7 Gateway-local `0x400 + SolarLocalSlot` — `TELEM_SOLAR_MPPT` (DLC: 8, `100 ms` Periodic)
+
+This identifier is used only on the Solar gateway's isolated child segment. `SolarLocalSlot` is `0`–`31`; on that segment it may numerically overlap a main-bus identifier. A gateway must aggregate/filter child traffic and must not transparently bridge raw Solar frames to the main bus.
 
 * **Bytes 0–1 (`uint16`):** `PV_Input_Voltage` (`0.05 V/bit`)
 * **Bytes 2–3 (`uint16`):** `PV_Input_Current` (`0.05 A/bit`)
@@ -175,7 +199,7 @@ This profile does not freeze other Boost instances, the global emergency-ID allo
 
 ---
 
-### 3.8 `0x410 + Instance` — `TELEM_GENERATOR` (DLC: 8, `50 ms` Periodic)
+### 3.8 `0x410 + Instance` — `TELEM_GENERATOR` (DLC: 8, `500 ms` Periodic)
 
 * **Bytes 0–1 (`uint16`):** `Bus_Output_Voltage` (`0.05 V/bit`)
 * **Bytes 2–3 (`int16`):** `Bus_Current` (`0.1 A/bit`; positive = generating to `96V` bus, negative = cranking draw)
@@ -190,7 +214,7 @@ This profile does not freeze other Boost instances, the global emergency-ID allo
 
 ---
 
-### 3.9 `0x420 + Instance` — `TELEM_GRID_INTERFACE` (DLC: 8, `50 ms` Periodic)
+### 3.9 `0x420 + Instance` — `TELEM_GRID_INTERFACE` (DLC: 8, `500 ms` Periodic)
 
 * **Bytes 0–1 (`uint16`):** `Grid_AC_RMS_Voltage` (`0.1 V/bit`)
 * **Bytes 2–3 (`int16`):** `DC_Bus_Output_Current` (`0.1 A/bit` onto `96V` bus)
@@ -206,7 +230,7 @@ This profile does not freeze other Boost instances, the global emergency-ID allo
 
 ---
 
-### 3.10 `0x500 + Instance` — `TELEM_AC_OUTPUT_FAST` (DLC: 8, `50 ms` Periodic)
+### 3.10 `0x500 + Instance` — `TELEM_AC_OUTPUT_FAST` (DLC: 8, `200 ms` Periodic)
 
 * **Bytes 0–1 (`uint16`):** `AC_RMS_Voltage` (`0.1 V/bit`; `1200` = `120.0 V`, `2400` = `240.0 V`)
 * **Bytes 2–3 (`uint16`):** `AC_RMS_Current` (`0.05 A/bit`; `400` = `20.00 A`)
@@ -220,7 +244,23 @@ This profile does not freeze other Boost instances, the global emergency-ID allo
 
 ---
 
-### 3.11 `0x600 + GlobalNodeID` — `NODE_HEARTBEAT` (DLC: 8, `100 ms` Periodic)
+  ### 3.10.1 Solar Segment Gateway Summary and Detail IDs (Payloads TBD)
+
+  For gateway instance `g` (`0`–`15`), reserve these main-bus identifiers. Both summary frames are sent in each `500 ms` summary interval:
+
+  | Frame | CAN ID | Provisional cadence |
+  | --- | --- | --- |
+  | Primary gateway summary | `0x430 + g` | One frame per `500 ms` summary interval |
+  | Secondary gateway summary | `0x440 + g` | One frame per `500 ms` summary interval |
+  | On-demand Solar child detail | `0x450 + g` | On request or paced rotation |
+
+  These are reserved assignments only. Summary fields, scaling, child-detail encoding, freshness semantics, and gateway command/reply payloads still require design. Child faults should be forwarded promptly using the gateway's unique main-bus emergency ID; the child-slot payload is not yet specified.
+
+  ---
+
+  ### 3.11 `0x600 + GlobalNodeID` — `NODE_HEARTBEAT` (DLC: 8, Type-Specific Periodic)
+
+  Main-bus IDs are `0x601`–`0x647`. Solar children use `0x600 + LocalAddress` (`0x601`–`0x620`) on their isolated segment.
 
 * **Byte 0:** `Rolling_Counter` (`0`–`255`)
 * **Byte 1:** `Node_Type`
@@ -231,19 +271,19 @@ This profile does not freeze other Boost instances, the global emergency-ID allo
 
 ---
 
-### 3.12 `0x700 + GlobalNodeID` — `NODE_IDENTITY` (DLC: 8, `1000 ms` Periodic & On-Demand)
-Used for commissioning discovery, duplicate `GlobalNodeID` conflict detection, and remote Solar MPPT identification.
+### 3.12 `0x700 + Address` — `NODE_IDENTITY` (DLC: 8, Startup/On-Request)
+Main-bus nodes use `0x700 + GlobalNodeID` (`0x701`–`0x747`). Solar children use `0x700 + LocalAddress` (`0x701`–`0x720`) only on their isolated segment. Identity is sent at startup and on request; the request mechanism remains to be specified.
 
 * **Bytes 0–3 (`uint32`):** `Permanent_Serial_Number` (Unique hardware serial number assigned at manufacture/flash)
 * **Byte 4:** `Node_Type`
-* **Byte 5:** `Configured_Instance_ID` (`0x0`–`0xF`)
+* **Byte 5:** `Configured_Instance_ID` (node-type-specific; Solar local slot `0`–`31`)
 * **Byte 6:** `Power_Stage_Profile_ID` (Identifies swappable power stage hardware variant, e.g., Solar MPPT panel profile or Inverter 120V/240V variant)
 * **Byte 7:** `Capability_Flags` (Bit 0: Has Local OLED UI, Bit 1: Primary Role Capable, Bit 2: Remote ID Provisionable)
 
 ---
 
-### 3.13 `0x740 + GlobalNodeID` — `CMD_ACK` (DLC: 8, Event-Driven Response)
-Explicit node response to state-changing `CMD_NODE_CONTROL` or `CMD_REMOTE_PROVISION` commands.
+### 3.13 Main-bus `0x760 + GlobalNodeID - 1` — `CMD_ACK` (DLC: 8, Event-Driven Response)
+Main-bus ACK IDs are `0x760`–`0x7A6` for state-changing addressed commands. Solar child ACKs use `0x740 + LocalAddress` (`0x741`–`0x760`) only on the local segment. Gateway-routed replies use reserved IDs `0x1B0`–`0x1BF`; their payload and relationship to a child ACK are not yet specified. Provisioning acknowledgement/confirmation behavior is also not defined.
 
 * **Byte 0:** `Echoed_Command_Action`
 * **Byte 1:** `Ack_Status` (`0x00`=Accepted, `0x01`=Rejected_Invalid_State, `0x02`=Rejected_Local_Fault, `0x03`=Rejected_Precharge_DeltaV, `0x04`=Rejected_CRC_Error)
@@ -253,11 +293,11 @@ Explicit node response to state-changing `CMD_NODE_CONTROL` or `CMD_REMOTE_PROVI
 
 ---
 
-### 3.14 `0x780` — `CMD_REMOTE_PROVISION` (DLC: 8, On-Demand)
-Sent by Coordinator during commissioning to assign a new `Instance_ID` to an unconfigured or inaccessible module (such as a roof-mounted Solar MPPT) matched by its `Permanent_Serial_Number`.
+### 3.14 `0x7C0` — `CMD_REMOTE_PROVISION` (DLC: 8, On-Demand; Payload Draft)
+The identifier remains reserved for Coordinator provisioning. The intended Solar workflow is for a gateway to match a child by serial number and assign a local slot; routing/discovery behavior for an unconfigured child is not yet defined.
 
 * **Bytes 0–3 (`uint32`):** `Target_Permanent_Serial_Number`
-* **Byte 4:** `New_Instance_ID` (`0x0`–`0xF`)
+* **Byte 4:** `New_Instance_ID` (node-type-specific; Solar local slot `0`–`31`)
 * **Byte 5:** `New_Stage_Profile_ID` (`0xFF` = No change)
 * **Byte 6:** `Provision_Action` (`0x01` = Commit to Non-Volatile Flash & Reboot CAN ID)
 * **Byte 7:** `CRC8` (SAE J1850 polynomial `0x1D` over Bytes `0–6`)
@@ -266,20 +306,40 @@ Sent by Coordinator during commissioning to assign a new `Instance_ID` to an unc
 
 ## 4. Timeout, Safety & Bus-Off Recovery Rules
 
-1. **Heartbeat Watchdog (`500 ms`):** Missing `COORD_HEARTBEAT` (`0x100`) for `> 500 ms` (5 consecutive missed beats) triggers immediate local transition into `DEGRADED_AUTONOMOUS` mode.
-2. **Balancing Token Timeout (`100 ms`):** If an active Boost or Inverter node misses `CMD_NODE_CONTROL` balancing tokens for `> 100 ms` while `COORD_HEARTBEAT` is still active, it holds its last valid current setpoint and raises Bit 2 (`Sensor/Token Drift`) in `NODE_HEARTBEAT` Byte 3.
-3. **Command Integrity (`CRC8`):** Any `CMD_NODE_CONTROL` (`0x120+`) or `CMD_REMOTE_PROVISION` (`0x780`) frame failing its Byte 7 `CRC8` check is silently dropped, increments the local `CAN_RX_CRC_Error` counter, and returns `Ack_Status = 0x04` on `CMD_ACK` (`0x740+`).
-4. **CAN Bus-Off Recovery:** All nodes must enable automatic hardware/software Bus-Off recovery with a `100 ms` backoff retry timer so transient EMI spikes never permanently deafen a power module.
+### Provisional traffic schedule
+
+| Node/message | Cadence |
+| --- | --- |
+| Coordinator heartbeat | `100 ms` |
+| Boost heartbeat / telemetry | `100 ms` / `50 ms`; `20 ms` commands only when active parallel balancing requires them |
+| Battery heartbeat / fast + slow telemetry | `250 ms` / `100 ms` + `1 s` |
+| Inverter heartbeat / telemetry | `250 ms` / `200 ms`; commands on change or at most every `250 ms` when justified |
+| Generator and Grid heartbeat / telemetry | `1 s` / `500 ms`; important state/fault events immediate |
+| Display heartbeat | `1 s` |
+| Solar child heartbeat / telemetry | `100 ms` on the local gateway segment |
+| Solar gateway heartbeat / summary | `100 ms` / two summary frames every `500 ms`; child faults promptly; child details on request or paced rotation |
+| Identity / ACK | Identity at startup/on request; ACK only for state-changing commands |
+
+### Watchdogs and bus behavior
+
+1. **Coordinator watchdog (`500 ms`):** Missing `COORD_HEARTBEAT` (`0x100`) for more than `500 ms` triggers the node's locally defined degraded behavior.
+2. **Missing-node deadlines:** Boost and Solar gateways `500 ms` (Solar children are monitored by their gateway at `500 ms`); Battery and Inverter `1 s`; Generator, Grid Interface, and Display `3 s`.
+3. **Balancing-token timeout (`100 ms`, provisional):** If an active Boost misses a required balancing update while the Coordinator heartbeat remains active, it holds its last valid local setpoint and raises the applicable warning. This timeout and Inverter-specific balancing behavior still need validation.
+4. **Command integrity (`CRC8`):** Invalid commands are not applied. ACK behavior for malformed/CRC-invalid commands remains profile-specific and must not contradict a module's safety behavior.
+5. **CAN Bus-Off Recovery:** Nodes should use a bounded recovery strategy; the current Nucleo simulators use a `100 ms` retry backoff.
+6. **Bus utilization target:** Aim for approximately `40%` sustained main-bus utilization and allow short peaks around `60%`. Validate with actual payloads, gateway summary rates, and worst-case events before treating this as a verified capacity.
 
 ## 5. Unresolved Items Before Implementation
 
-- Review and freeze a one-Battery Node profile for PC-to-Coordinator simulation using ordinary node frames; do not introduce simulator-only CAN identifiers.
-- `EMERGENCY_FAULT` currently uses `0x001 + Node_Type`; multiple nodes of the same type therefore share an arbitration identifier. Define unique IDs that preserve the required fault priority.
-- `CMD_ACK` currently uses `0x740 + GlobalNodeID`, which overlaps fixed provisioning ID `0x780` for some node IDs.
-- Define the identity/discovery identifier and payload for a node that has not yet been assigned a `GlobalNodeID`, and confirm the valid ID range for each node type.
-- The CRC-error rule says to silently drop an invalid command and also return an error acknowledgement; choose one behavior and define how it can be addressed safely.
-- Define ACK correlation, retries, duplicate-command handling, and protocol version compatibility.
+- Define the compact 8-byte gateway child-control payload, routed reply/ACK semantics, and command correlation.
+- Define the Solar gateway summary and child-detail payload fields, scaling, freshness, and update behavior.
+- Assign local Solar child emergency identifiers and define how the gateway identifies the originating child in a forwarded main-bus fault.
+- Define unconfigured Solar child discovery and identity-request behavior, including the provisioning route to the correct gateway.
+- Select the Solar gateway hardware/interface and verify local-segment isolation and capacity; no physical gateway firmware target is specified yet.
+- Validate main-bus utilization against the traffic schedule, full 500-child Solar target, and worst-case fault/command events.
+- Define protocol version compatibility, retry behavior, duplicate-command handling, and per-profile malformed-command ACK behavior.
+- Confirm Battery-to-DALY BMS model/interface/protocol separately; the DALY link is local to the Battery module and is not specified by this system CAN registry.
 
-The Boost 0 profile above locally resolves CRC-error handling and ACK correlation for that configured node. The listed system-wide issues remain open and must be resolved before generalizing the profile or enabling broader production application behavior.
+The main-bus CAN ID registry and node quotas above are approved working assignments. Reserved gateway IDs do not imply that their payloads or physical gateway implementation are complete. Do not treat unresolved payload assignments or illustrative electrical examples as approved command behavior.
 
-Do not treat unresolved frame assignments or illustrative examples as approved command behavior.
+The preliminary Solar Gateway scope, two-segment routing boundary, hardware direction, and failure behavior are documented in the [Solar Gateway Node design](../architecture/nodes/Solar_Gateway_Node.md). That design does not define gateway payload bytes or authorize transparent forwarding.

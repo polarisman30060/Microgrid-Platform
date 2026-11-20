@@ -28,7 +28,7 @@ The Coordinator shall not:
 
 - Perform PWM generation, fast voltage/current regulation, or module-level protection.
 - Override a module's local FAULT or LOCKOUT decision.
-- Assign or automatically change node addresses.
+- Automatically assign or change node addresses; explicit commissioning-time provisioning may be added when its protocol and authorization rules are defined.
 - Assume a CAN command was acted on without an acknowledgement or confirming telemetry where the protocol requires confirmation.
 
 ### Module firmware
@@ -61,20 +61,20 @@ Each power module retains authority over its local control loops, hardware trips
 
 ## Communications Contract Gate
 
-The current Coordinator implementation transmits `COORD_HEARTBEAT` and decodes the proposed Battery 0 identity, heartbeat, and telemetry frames. Bidirectional CAN with emulated ordinary module nodes is the development requirement; the Coordinator must not require a simulator-specific mode or protocol. The PC Battery emulator exists, but Coordinator command transmission and end-to-end validation remain unimplemented. The current project-wide timing target is a `100 ms` node/coordinator heartbeat and a `500 ms` timeout; those timings are not a substitute for completing the protocol review.
+The current Coordinator implementation transmits `COORD_HEARTBEAT` and decodes Battery 0 identity, heartbeat, and telemetry using the working registry IDs. Bidirectional CAN with emulated ordinary module nodes is the development requirement; the Coordinator must not require a simulator-specific mode or protocol. Coordinator command transmission and end-to-end validation remain unimplemented. The provisional schedule uses a `100 ms` Coordinator heartbeat, type-specific node heartbeat periods, and type-specific missing-node deadlines.
 
-The Boost instance 0 wire profile is frozen only for isolated simulator and compatible-firmware development; see Section 3.6.1 of [`../protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md). The current Coordinator does not yet decode Boost frames or transmit node commands. The following project-wide protocol questions remain implementation blockers:
+Boost instance 0 has been reopened to use the working registry; see Section 3.6.1 of [`../protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md). The current Coordinator does not yet decode Boost frames or transmit node commands. The following protocol questions remain implementation blockers:
 
-- `EMERGENCY_FAULT` uses `0x001 + Node_Type`, so nodes of the same type share an identifier and may attempt simultaneous transmission. Define unique arbitration identifiers for faulting nodes.
-- `CMD_ACK` uses `0x740 + GlobalNodeID`, which overlaps the fixed `0x780` remote-provisioning identifier for some node IDs. The frozen Boost 0 profile's `0x760` ACK is not affected.
-- Define how an unconfigured node announces its identity before it has a `GlobalNodeID`, and clarify which node-ID values are valid for every node type.
-- Specify whether a malformed command is acknowledged or dropped; the current CRC-error rule says both.
+- Define the compact Solar gateway child-control payload, routed reply/ACK semantics, and command correlation for IDs `0x1A0`–`0x1BF`.
+- Define Solar gateway summary and child-detail payloads for IDs `0x430`–`0x45F`.
+- Define local Solar child emergency reporting and gateway forwarding payloads.
+- Define unconfigured Solar child discovery and how provisioning (`0x7C0`) reaches the correct gateway.
 - Define command acknowledgement/retry and duplicate-command behavior before enabling state-changing commands.
-- Reconcile payload definitions with the intended telemetry and command semantics, then publish one reviewed, versioned protocol as the implementation source of truth.
+- Validate the provisional bus load against the 500-Solar-node target and real payload sizes.
 
-Until these items are resolved, firmware may develop and test CAN transport and the specifically frozen Boost 0 communications profile, but shall not generalize its command behavior to other nodes or treat illustrative examples as settled safety behavior. The Boost profile does not authorize or test physical power control. See [Coordinator CAN implementation guide](Coordinator_CAN_Implementation.md).
+The main-bus ID registry and node quotas are approved working assignments; unresolved gateway payloads do not invalidate those assignments. Firmware may develop and test transport and node profiles, but shall not treat illustrative payloads or behaviors as settled safety requirements. The registry does not authorize or test physical power control. See [Coordinator CAN implementation guide](Coordinator_CAN_Implementation.md).
 
-The PC Battery simulator uses ordinary Battery Node messages and remains a separate initial integration milestone. The Nucleo-G474RE Boost simulator shall use the frozen Boost 0 profile, ordinary CAN identifiers, and an external isolated CAN transceiver. Neither simulator shall actuate physical power hardware.
+The PC Battery simulator uses ordinary Battery Node messages and remains a separate initial integration milestone. The Nucleo-G474RE Boost simulator uses the working Boost 0 registry profile and an external isolated CAN transceiver. Solar child frames belong on isolated gateway-local segments. Neither simulator shall actuate physical power hardware.
 
 ## Implementation Constraints
 
@@ -102,7 +102,7 @@ The PC Battery simulator uses ordinary Battery Node messages and remains a separ
 
 ## Open Questions
 
-- Resolve and approve unique emergency identifiers, project-wide ACK/provisioning identifier overlap, unconfigured-node identity, and malformed-command handling before generalizing the CAN application layer beyond the frozen Boost 0 profile.
+- Define Solar gateway payloads, local emergency reporting, provisioning discovery, and malformed-command handling before implementing gateway application behavior.
 - Define the acknowledged command lifecycle, including retries, duplicate-command handling, and safe behavior when acknowledgements are lost.
 - Define the persistence format, configuration migration policy, and behavior when the SD card is absent or fails.
 - Define operator authorization and audit requirements for remote controls and fault resets.
