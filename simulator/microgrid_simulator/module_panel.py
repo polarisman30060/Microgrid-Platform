@@ -99,6 +99,7 @@ class ModulePanel:
 
         self._build_telemetry(telemetry_tab)
         self._build_contract(contract_tab)
+        self.refresh()
 
     def _build_telemetry(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -168,7 +169,6 @@ class ModulePanel:
                 text="Apply telemetry values",
                 command=self._apply_telemetry_values,
             ).grid(row=3, column=0, sticky="w", pady=(8, 0))
-        self.refresh()
 
     def _make_field_editor(
         self,
