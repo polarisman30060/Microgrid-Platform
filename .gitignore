@@ -30,3 +30,6 @@ build/
 simulator/.venv/
 simulator/**/__pycache__/
 simulator/**/*.pyc
+
+# Manufacturer datasheets are kept locally, not redistributed.
+docs/datasheet/*.pdf

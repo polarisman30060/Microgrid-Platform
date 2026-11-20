@@ -71,6 +71,7 @@ Boost instance 0 has been reopened to use the working registry; see Section 3.6.
 - Define unconfigured Solar child discovery and how provisioning (`0x7C0`) reaches the correct gateway.
 - Define command acknowledgement/retry and duplicate-command behavior before enabling state-changing commands.
 - Validate the provisional bus load against the 500-Solar-node target and real payload sizes.
+- Define and validate the parallel Inverter `20 ms` current-sharing profile, including feedback freshness, missed-update behavior, and bus load before implementing it. Non-paralleled Inverters do not require that update rate.
 
 The main-bus ID registry and node quotas are approved working assignments; unresolved gateway payloads do not invalidate those assignments. Firmware may develop and test transport and node profiles, but shall not treat illustrative payloads or behaviors as settled safety requirements. The registry does not authorize or test physical power control. See [Coordinator CAN implementation guide](Coordinator_CAN_Implementation.md).
 

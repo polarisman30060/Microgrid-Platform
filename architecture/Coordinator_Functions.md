@@ -25,7 +25,7 @@ The CAN timings and frame references below follow the working registry and provi
 
 ### 2.3 Power Dispatch, Current Balancing & Bus Trim
 * Aggregates real-time power generation, battery state-of-charge (SoC), and load demand across all modules.
-* Sends current-balancing updates (`CMD_NODE_CONTROL`, `0x120+`) at `20 ms` only when active parallel Boost balancing requires them. It does not send routine `20 ms` Inverter commands; Inverter commands are on change or at most every `250 ms` when justified.
+* Plans current-balancing updates (`CMD_NODE_CONTROL`, `0x120+`) at `20 ms` for active parallel Boost and Inverter modules. Non-paralleled Inverter commands remain on change, or at most every `250 ms` when justified. The Inverter sharing profile, data freshness, and bus capacity still require validation.
 * Manages source priority rules (Solar MPPT -> Battery Storage -> Backup Generator / Grid Input) based on SoC thresholds and user configuration, while enforcing fleet-wide Battery mode exclusivity (`CHARGING`, `DISCHARGING`, `IDLE`).
 
 ### 2.4 Software Circuit Breaker & Fault Management

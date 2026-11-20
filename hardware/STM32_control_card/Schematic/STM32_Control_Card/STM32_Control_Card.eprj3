@@ -1,0 +1,114 @@
+{
+  "name": "STM32_Control_Card",
+  "owner_uuid": "5eefa1b064334308bf1ec93bd3e8ecfe",
+  "creator_uuid": "5eefa1b064334308bf1ec93bd3e8ecfe",
+  "created_at": "2026-11-20 13:15:32",
+  "updated_at": "2026-11-20 13:15:32",
+  "modifier_uuid": "5eefa1b064334308bf1ec93bd3e8ecfe",
+  "content": "",
+  "archive": false,
+  "cbb_project": 0,
+  "thumb": "",
+  "ticket": 1,
+  "g_ticket": 1,
+  "boards": [],
+  "block_symbol_attrs_groups": {},
+  "default_sheet": "14c40ebeec4c8025",
+  "branch_uuid": "",
+  "pcb_count": 0,
+  "format": "folder",
+  "profile": {
+    "boards": {
+      "d7ee87c5bd9060b4": {
+        "uuid": "d7ee87c5bd9060b4",
+        "title": "Board1",
+        "zIndex": 1
+      }
+    },
+    "schematics": {
+      "134311d9cfb23643": {
+        "uuid": "134311d9cfb23643",
+        "name": "Schematic1",
+        "board": "d7ee87c5bd9060b4",
+        "source": "",
+        "version": "1795213726678",
+        "updateTime": 1795213726678
+      }
+    },
+    "sheets": {
+      "7e99fdda103d61f1": {
+        "uuid": "7e99fdda103d61f1",
+        "title": "Micro + Headers",
+        "schematic_uuid": "134311d9cfb23643",
+        "zIndex": 1,
+        "source": "",
+        "version": "1795212524976",
+        "updateTime": 1795212524976
+      },
+      "8c4e46f6fe0b703f": {
+        "uuid": "8c4e46f6fe0b703f",
+        "title": "Decoupling + Filtering",
+        "schematic_uuid": "134311d9cfb23643",
+        "zIndex": 2,
+        "source": "",
+        "version": "1795213725736",
+        "updateTime": 1795213725736
+      },
+      "090cbf9906c0b93d": {
+        "uuid": "090cbf9906c0b93d",
+        "title": "CAN Tranciever",
+        "schematic_uuid": "134311d9cfb23643",
+        "zIndex": 3,
+        "source": "",
+        "version": "1795213726678",
+        "updateTime": 1795213726678
+      }
+    },
+    "pcbs": {
+      "9b24b383bb168395": {
+        "uuid": "9b24b383bb168395",
+        "title": "PCB1",
+        "board": "d7ee87c5bd9060b4",
+        "parent_uuid": "",
+        "source": "",
+        "version": "1795198534705",
+        "updateTime": 1795198534705
+      }
+    },
+    "panels": {
+      "651486a9bd6bc0d0": {
+        "uuid": "651486a9bd6bc0d0",
+        "title": "Panel1",
+        "zIndex": null
+      }
+    },
+    "blockSymbols": {},
+    "owner": {
+      "uuid": "5eefa1b064334308bf1ec93bd3e8ecfe"
+    },
+    "simSchematics": {},
+    "simulations": {}
+  },
+  "config": {
+    "defaultSheet": "14c40ebeec4c8025",
+    "settings": {
+      "UNIVERSAL": {
+        "dataType": "UNIVERSAL",
+        "data": {
+          "allowLibRename": true,
+          "defaultNetName": true,
+          "wireMultipleNet": true,
+          "netFlagCrossLayerConnection": true,
+          "netLabelCrossPageConnection": true,
+          "busGenerateNetClass": true,
+          "relevanceDisplayRow": "SINGLE",
+          "relevanceBelongSchPage": "NAME",
+          "relevanceLocation": "ZONE",
+          "multipartCrossLayer": true,
+          "nonElectronicAddIntoBom": false,
+          "nonElectronicUpdatePcb": false
+        }
+      }
+    }
+  }
+}

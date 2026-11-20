@@ -95,7 +95,7 @@ Master keep-alive and global supervisory state broadcast.
 ### 3.3 Main-bus `0x120 + GlobalNodeID` — `CMD_NODE_CONTROL` (DLC: 8)
 Supervisory dispatch setpoints sent by the Coordinator to one main-bus node. `0x120` is reserved for broadcast control; addressed node IDs are `0x121`–`0x167`. Solar children use `0x120 + LocalAddress` only on their isolated gateway segment. Solar child-control routing through gateway IDs `0x1A0`–`0x1AF` is reserved; its compact payload and paired reply behavior are not defined yet.
 
-The provisional command schedule is event/on-change based for ordinary nodes. Boost balancing updates may use `20 ms` only while active parallel balancing requires them. Inverter commands are sent on change, or at most every `250 ms` when justified; routine `20 ms` inverter commands are not planned.
+The provisional command schedule is event/on-change based for ordinary nodes. Active parallel Boost and Inverter modules require current-sharing updates at `20 ms`. Non-paralleled Inverter commands are sent on change, or at most every `250 ms` when justified; they do not require routine `20 ms` updates. The Inverter sharing profile, telemetry freshness, and total bus capacity remain to be defined and validated.
 
 * **Byte 0:** `Command_Action`
   * `0x00` = No-op / Hold Current Mode
@@ -107,7 +107,7 @@ The provisional command schedule is event/on-change based for ordinary nodes. Bo
   * `0x06` = Generator Crank / Start Sequence
   * `0x07` = Generator Cooldown & Stop Sequence
 * **Bytes 1–2 (`uint16`):** `Target_Voltage_Setpoint` (`0.05 V/bit`; e.g., `1920` = `96.00 V`, `7600` = `380.00 V`)
-* **Bytes 3–4 (`int16`):** `Current_Limit_Or_Balance_Token` (`0.1 A/bit`; for parallel Boost/Inverter nodes, carries the active current-sharing target token updated every `20 ms`; for Battery/Grid/Solar, carries max charge/import/curtailment current)
+* **Bytes 3–4 (`int16`):** `Current_Limit_Or_Balance_Token` (`0.1 A/bit`; proposed for parallel Boost/Inverter current-sharing targets at `20 ms`; for Battery/Grid/Solar, carries max charge/import/curtailment current). Inverter target meaning and payload semantics remain to be validated.
 * **Bytes 5–6 (`int16`):** `Max_Discharge_Or_Secondary_Limit` (`0.1 A/bit`; max discharge current for Battery, or reactive/secondary trim)
 * **Byte 7:** `CRC8` (SAE J1850 polynomial `0x1D` over Bytes `0–6`)
 
@@ -313,7 +313,7 @@ The identifier remains reserved for Coordinator provisioning. The intended Solar
 | Coordinator heartbeat | `100 ms` |
 | Boost heartbeat / telemetry | `100 ms` / `50 ms`; `20 ms` commands only when active parallel balancing requires them |
 | Battery heartbeat / fast + slow telemetry | `250 ms` / `100 ms` + `1 s` |
-| Inverter heartbeat / telemetry | `250 ms` / `200 ms`; commands on change or at most every `250 ms` when justified |
+| Inverter heartbeat / telemetry | `250 ms` / `200 ms`; `20 ms` current-sharing updates during active parallel operation; otherwise commands on change or at most every `250 ms` when justified |
 | Generator and Grid heartbeat / telemetry | `1 s` / `500 ms`; important state/fault events immediate |
 | Display heartbeat | `1 s` |
 | Solar child heartbeat / telemetry | `100 ms` on the local gateway segment |
@@ -324,7 +324,7 @@ The identifier remains reserved for Coordinator provisioning. The intended Solar
 
 1. **Coordinator watchdog (`500 ms`):** Missing `COORD_HEARTBEAT` (`0x100`) for more than `500 ms` triggers the node's locally defined degraded behavior.
 2. **Missing-node deadlines:** Boost and Solar gateways `500 ms` (Solar children are monitored by their gateway at `500 ms`); Battery and Inverter `1 s`; Generator, Grid Interface, and Display `3 s`.
-3. **Balancing-token timeout (`100 ms`, provisional):** If an active Boost misses a required balancing update while the Coordinator heartbeat remains active, it holds its last valid local setpoint and raises the applicable warning. This timeout and Inverter-specific balancing behavior still need validation.
+3. **Balancing-token timeout (`100 ms`, provisional for Boost):** If an active Boost misses a required balancing update while the Coordinator heartbeat remains active, it holds its last valid local setpoint and raises the applicable warning. This timeout still needs validation. The Inverter balancing-update timeout and safe behavior on stale or missing updates remain undefined.
 4. **Command integrity (`CRC8`):** Invalid commands are not applied. ACK behavior for malformed/CRC-invalid commands remains profile-specific and must not contradict a module's safety behavior.
 5. **CAN Bus-Off Recovery:** Nodes should use a bounded recovery strategy; the current Nucleo simulators use a `100 ms` retry backoff.
 6. **Bus utilization target:** Aim for approximately `40%` sustained main-bus utilization and allow short peaks around `60%`. Validate with actual payloads, gateway summary rates, and worst-case events before treating this as a verified capacity.
@@ -337,6 +337,7 @@ The identifier remains reserved for Coordinator provisioning. The intended Solar
 - Define unconfigured Solar child discovery and identity-request behavior, including the provisioning route to the correct gateway.
 - Select the Solar gateway hardware/interface and verify local-segment isolation and capacity; no physical gateway firmware target is specified yet.
 - Validate main-bus utilization against the traffic schedule, full 500-child Solar target, and worst-case fault/command events.
+- Define and validate the Inverter current-sharing payload, feedback freshness and cadence, missed-update behavior, and parallel-group scaling. Check whether the existing `200 ms` Inverter telemetry can support the `20 ms` update requirement and include concurrent parallel groups in the bus-load analysis.
 - Define protocol version compatibility, retry behavior, duplicate-command handling, and per-profile malformed-command ACK behavior.
 - Confirm Battery-to-DALY BMS model/interface/protocol separately; the DALY link is local to the Battery module and is not specified by this system CAN registry.
 

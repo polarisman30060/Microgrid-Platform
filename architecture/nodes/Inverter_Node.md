@@ -9,6 +9,7 @@ The Inverter Node converts DC power from the 380VDC Inverter Bus into regulated 
 - Convert energy from the 380VDC Inverter Bus into regulated 60Hz AC power
 - Synchronize output waveform phase and frequency with parallel Inverter Nodes
 - Balance active and reactive current sharing across parallel output modules
+- Receive planned `20 ms` current-sharing updates when participating in active parallel operation; non-paralleled operation does not require that cadence. Sharing payload, measurement freshness, and timeout behavior remain to be defined and validated.
 - Enforce local inverse-time (`I²t`) overload and sub-microsecond short-circuit breaker protection
 - Report AC output telemetry, breaker state, and fault status to the Microgrid CAN Network
 

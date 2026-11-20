@@ -149,7 +149,7 @@ System stability and safety rely on four decoupled time horizons so communicatio
 | **Layer 0: Hardware Fault Protection** | Analog Comparators & MCU `HRTIM` Fault Inputs | `< 1 us` | Direct hardware overcurrent, desaturation, and bus overvoltage comparators immediately shut off gate-driver PWM outputs without waiting for CPU interrupts. |
 | **Layer 1: Fast Inner Loops** | Local Node MCU (`STM32` ISR / DMA) | `25 us - 100 us` (`10-40 kHz`) | Inductor current regulation, active phase current balancing across interleaved legs, and cycle-by-cycle AC sinusoidal current synthesis. |
 | **Layer 2: Local Outer Loops & Droop** | Local Node MCU | `1 ms - 10 ms` (`100 Hz - 1 kHz`) | Bus voltage regulation, MPPT perturbation, thermal derating curves, and autonomous V-I droop fallback if Coordinator heartbeat times out (`> 500 ms`). |
-| **Layer 3: Supervisory Dispatch** | Master Coordinator (`ESP32-S3` over CAN) | On change to `500 ms`; conditional `20 ms` Boost balancing | Precharge sequencing, secondary voltage trim, parallel module load sharing, SoC reserve management, generator auto-start, and UI telemetry. Routine `20 ms` Inverter commands are not planned. |
+| **Layer 3: Supervisory Dispatch** | Master Coordinator (`ESP32-S3` over CAN) | On change to `500 ms`; `20 ms` sharing updates for active parallel Boost and Inverter modules | Precharge sequencing, secondary voltage trim, parallel module load sharing, SoC reserve management, generator auto-start, and UI telemetry. Non-paralleled Inverters do not need routine `20 ms` commands. Inverter sharing details and bus capacity require validation. |
 
 ---
 

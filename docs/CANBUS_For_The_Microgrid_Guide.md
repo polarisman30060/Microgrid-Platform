@@ -34,7 +34,7 @@ To keep the conversation organized, we divide all CAN messages into priority lan
 | :------------------ | :---------------- | :------------------------- | :------------------------------------------------------------------------ | :----------------------------------------------------- |
 | **`0x001`–`0x047`** | **1 (Highest)**   | **The Fire Alarm**         | Unique main-bus emergency ID equals the sending node's GlobalNodeID.      | Immediately when fault happens                         |
 | **`0x100`–`0x11F`** | **2 (Very High)** | **The Conductor's Pulse**  | Coordinator says "I'm alive, here is the overall system mode."            | Every **100 ms** (10x/sec)                             |
-| **`0x120`–`0x167`** | **3 (High)**      | **Marching Orders**        | Coordinator addresses a main-bus module using its registry ID.            | On change/request; Boost balancing may use **20 ms**    |
+| **`0x120`–`0x167`** | **3 (High)**      | **Marching Orders**        | Coordinator addresses a main-bus module using its registry ID.            | On change/request; parallel Boost/Inverter sharing uses **20 ms** |
 | **`0x1A0`–`0x1BF`** | **3 (High)**      | **Solar Gateway Routing**  | Reserved child-command and reply IDs; payload is still being designed.    | Not implemented                                        |
 | **`0x200`–`0x5FF`** | **4 (Medium)**    | **The Gauges (Telemetry)** | Modules report volts, amps, watts, RPM, temperatures, and battery %.      | Type-specific; Solar child traffic stays local        |
 | **`0x600`–`0x6FF`** | **5 (Low)**       | **Roll Call (Heartbeats)** | Modules report presence and local state.                                  | **100 ms** to **1 s**, depending on node type          |
@@ -109,6 +109,6 @@ Per-panel Solar MPPT boxes are intended to connect to a local segment behind a S
 ## 5. Golden Rules to Remember
 
 * **Type-Specific Heartbeats:** Boost/Solar child `100 ms`, Battery/Inverter `250 ms`, Generator/Grid/Display `1 s`; missing-node deadlines are `500 ms` for Boost/Solar gateway, `1 s` for Battery/Inverter, and `3 s` for Generator/Grid/Display.
-* **Conditional Balancing:** Active parallel Boost stages may need `20 ms` setpoint updates; no routine `20 ms` Inverter commands are planned.
+* **Conditional Balancing:** Active parallel Boost and Inverter modules require `20 ms` current-sharing updates. Non-paralleled Inverters do not need that routine cadence; Inverter sharing details and bus capacity remain to be validated.
 * **Gateway-Local Solar:** Solar children report locally; gateways aggregate and limit upstream traffic.
 * **Safety Never Waits for CAN:** Hardware comparators and local STM32 chips handle microsecond emergencies; CANbus handles coordination, balancing, and visibility.

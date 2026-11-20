@@ -36,6 +36,8 @@ The allocation table describes the main bus unless explicitly marked gateway-loc
 
 The Coordinator heartbeat is `100 ms`. Node heartbeats use type-specific periods: Boost/Solar child `100 ms`, Battery/Inverter `250 ms`, Generator/Grid/Display `1 s`, and Solar gateway `100 ms`. Missing-node deadlines are Boost/Solar gateway `500 ms`, Battery/Inverter `1 s`, and Generator/Grid/Display `3 s`; Solar children are monitored by their gateway at `500 ms`. The frame format and detailed timing rules are specified in [`CAN_Messages_Definitions.md`](./CAN_Messages_Definitions.md).
 
+Active parallel Boost and Inverter modules require `20 ms` supervisory current-sharing updates. Non-paralleled Inverters do not require that cadence. Inverter sharing payloads, feedback freshness, missed-update behavior, and bus capacity remain to be validated; this requirement does not change the currently documented `200 ms` Inverter telemetry period.
+
 CAN is supervisory communication only. Fast cycle-by-cycle current loops and hardware fault protection shall remain local to each power module and shall not depend on CAN timing or availability. Bulk bus capacitance does not replace local control or protection.
 
 - Upon Coordinator timeout, active nodes transition to `DEGRADED_AUTONOMOUS` mode using their last valid operating limits:
