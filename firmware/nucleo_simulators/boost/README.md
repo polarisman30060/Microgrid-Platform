@@ -1,6 +1,6 @@
 # Nucleo-G474RE Boost 0 CAN Simulator
 
-Standalone firmware project for the ST Nucleo-G474RE. It emulates the frozen Boost 0 CAN profile in [`../../protocol/CAN_Messages_Definitions.md`](../../protocol/CAN_Messages_Definitions.md), Section 3.6.1.
+Standalone firmware project for the ST Nucleo-G474RE. It emulates the reopened Boost 0 profile in [`../../../protocol/CAN_Messages_Definitions.md`](../../../protocol/CAN_Messages_Definitions.md), Section 3.6.1. This project is grouped with the other Nucleo simulators under [`../`](../).
 
 The firmware uses FDCAN1 in Classical CAN mode at 500 kbit/s. It sends Boost telemetry, node heartbeat, and identity frames; receives Coordinator heartbeats and control commands; and returns simulated ACKs. Commands only update in-memory simulated state and telemetry. The firmware does not configure PWM, ADC, contactor, or other power-stage outputs.
 
@@ -19,7 +19,7 @@ The on-board ST-LINK virtual COM port uses USART2 (`PA2` TX / `PA3` RX) at 11520
 ## Build and flash with VS Code
 
 1. Install the **PlatformIO IDE** extension. In VS Code, open Extensions (`Ctrl+Shift+X`), search for `PlatformIO IDE` by PlatformIO, and install it. The C/C++ extension is optional; PlatformIO supplies the embedded toolchain and project integration.
-2. Open `firmware\nucleo_boost_simulator` as the PlatformIO project folder. On the first build, PlatformIO downloads the STM32 platform, STM32Cube HAL, and ARM compiler.
+2. Open `firmware\nucleo_simulators\boost` as the PlatformIO project folder. On the first build, PlatformIO downloads the STM32 platform, STM32Cube HAL, and ARM compiler.
 3. Connect the Nucleo over USB, then select **PlatformIO: Build** from the Command Palette.
 4. Select **PlatformIO: Upload** to build and flash over the on-board ST-LINK. If multiple upload ports are present, set the correct port in the PlatformIO status bar or project environment.
 5. To view logs, open the PlatformIO serial monitor at 115200 baud.
@@ -29,9 +29,9 @@ The project can also be built from a terminal with `pio run` and flashed with `p
 ## Simulator behavior
 
 - Standard 11-bit Classical CAN, 500 kbit/s, 8-byte payloads.
-- Transmits identity (`0x720`) at boot and every 1000 ms, Boost telemetry (`0x300`) every 50 ms, and node heartbeat (`0x620`) every 100 ms.
-- Receives Coordinator heartbeat (`0x100`) and Boost control (`0x140`). Coordinator timeout is reported after 500 ms.
-- Valid control CRC uses CRC-8/SAE-J1850 over bytes 0-6. Invalid CRC is dropped without an ACK. Supported and unsupported actions follow the frozen profile; ACKs use `0x760`.
+- Transmits identity (`0x706`) at boot, Boost telemetry (`0x300`) every 50 ms, and node heartbeat (`0x606`) every 100 ms.
+- Receives Coordinator heartbeat (`0x100`) and Boost control (`0x126`). Coordinator timeout is reported after 500 ms.
+- Valid control CRC uses CRC-8/SAE-J1850 over bytes 0-6. Invalid CRC is dropped without an ACK. Supported and unsupported actions follow the reopened Boost profile; state-changing command ACKs use `0x765`, while no-op commands do not produce an ACK.
 - Telemetry values are fixed/simulated, including `30000 mV` for the emulated auxiliary supply. `Power_Stage_Profile_ID` is `0x00` (no physical power stage), and identity capability flags are zero.
 - The default test serial is `0x4E554300`. Change `BOOST_SIM_SERIAL_NUMBER` in `platformio.ini` before using another simulator so every node has a unique test serial.
 

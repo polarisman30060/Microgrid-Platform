@@ -10,11 +10,11 @@
 #endif
 
 #define CAN_ID_COORD_HEARTBEAT 0x100U
-#define CAN_ID_BOOST_COMMAND 0x140U
+#define CAN_ID_BOOST_COMMAND 0x126U
 #define CAN_ID_BOOST_TELEMETRY 0x300U
-#define CAN_ID_NODE_HEARTBEAT 0x620U
-#define CAN_ID_NODE_IDENTITY 0x720U
-#define CAN_ID_COMMAND_ACK 0x760U
+#define CAN_ID_NODE_HEARTBEAT 0x606U
+#define CAN_ID_NODE_IDENTITY 0x706U
+#define CAN_ID_COMMAND_ACK 0x765U
 
 #define NODE_TYPE_BOOST 0x02U
 #define BOOST_INSTANCE 0x00U
@@ -22,7 +22,6 @@
 #define COORDINATOR_TIMEOUT_MS 500U
 #define TELEMETRY_PERIOD_MS 50U
 #define NODE_HEARTBEAT_PERIOD_MS 100U
-#define NODE_IDENTITY_PERIOD_MS 1000U
 #define BUS_OFF_RECOVERY_DELAY_MS 100U
 #define RX_QUEUE_LENGTH 8U
 
@@ -68,7 +67,6 @@ static uint32_t s_last_tx_error_log_ms;
 static uint32_t s_last_coordinator_heartbeat_ms;
 static uint32_t s_next_telemetry_ms;
 static uint32_t s_next_node_heartbeat_ms;
-static uint32_t s_next_identity_ms;
 static uint32_t s_bus_recovery_deadline_ms;
 static bool s_coordinator_timed_out;
 static bool s_bus_recovery_pending;
@@ -464,7 +462,7 @@ int main(void)
     s_last_coordinator_heartbeat_ms = now;
     s_next_telemetry_ms = now;
     s_next_node_heartbeat_ms = now;
-    s_next_identity_ms = now;
+    Send_Node_Identity();
 
     Console_Print("\r\nMicrogrid Boost 0 CAN simulator ready.\r\n");
     Console_Print("Classical CAN 500 kbit/s; no power-stage outputs are configured.\r\n");
@@ -489,10 +487,6 @@ int main(void)
             Send_Node_Heartbeat();
             s_next_node_heartbeat_ms = now + NODE_HEARTBEAT_PERIOD_MS;
             HAL_GPIO_TogglePin(STATUS_LED_GPIO, STATUS_LED_PIN);
-        }
-        if (Time_Reached(now, s_next_identity_ms)) {
-            Send_Node_Identity();
-            s_next_identity_ms = now + NODE_IDENTITY_PERIOD_MS;
         }
     }
 }

@@ -6,6 +6,8 @@ from microgrid_simulator.protocol import (
     WaveshareFrameParser,
     crc8_sae_j1850,
     decode_coordinator_heartbeat,
+    encode_battery_ack,
+    encode_node_ack,
     encode_waveshare_frame,
 )
 
@@ -59,6 +61,14 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(heartbeat.state, 2)
         self.assertEqual(heartbeat.active_node_count, 1)
         self.assertEqual(heartbeat.uptime_seconds, 0x12345678)
+
+    def test_generic_ack_encoder_preserves_battery_wrapper(self):
+        generic = encode_node_ack(0x760, 2, 0, 3, 1, 0x12345678)
+        battery = encode_battery_ack(2, 0, 3, 1, 0x12345678)
+
+        self.assertEqual(generic.identifier, 0x760)
+        self.assertEqual(generic, battery)
+        self.assertEqual(generic.data, bytes.fromhex("02 00 03 01 78 56 34 12"))
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 # Microgrid Communications Specification
 
-Version: 1.0
-Status: Draft overall. The configured Boost instance 0 communications profile is frozen for isolated simulator and compatible-firmware development only; all other profiles and project-wide behavior remain draft. This does not approve electrical behavior or production deployment.
+Version: 1.1
+Status: Working CAN ID registry and provisional traffic schedule approved for implementation. Solar gateway payloads, local emergency reporting, discovery/provisioning details, and electrical behavior remain draft. Boost 0 has been reopened; no profile is a production approval.
 
 ## 1. Physical & Data-Link Layer
 
@@ -17,19 +17,24 @@ The Microgrid Communications Bus shall use:
 
 CAN identifiers are allocated by **message priority and function** so critical hardware faults and supervisory dispatch frames always win bus arbitration over routine telemetry:
 
-- `0x001` – `0x01F`: **Highest Priority** — Emergency Hardware Faults (Event-driven)
+- `0x001` – `0x047`: **Highest Priority** — Main-bus Emergency Hardware Faults (`GlobalNodeID`)
+- `0x048` – `0x0FF`: Reserved emergency identifiers
 - `0x100` – `0x11F`: **Very High Priority** — Coordinator Heartbeat & Global State (`100 ms`)
-- `0x120` – `0x1FF`: **High Priority** — Supervisory Control Setpoints & Current Balancing Tokens (`20 ms`–`100 ms`)
-- `0x200` – `0x2FF`: **Medium-High Priority** — Battery / BMS Node Telemetry (`50 ms` fast / `250 ms` slow)
-- `0x300` – `0x3FF`: **Medium Priority** — HV Boost Converter Telemetry (`50 ms` fast / `250 ms` slow)
-- `0x400` – `0x4FF`: **Medium Priority** — Renewable & Fuel Source Telemetry: Solar MPPT, Generator, Grid Interface (`50 ms`–`250 ms`)
-- `0x500` – `0x5FF`: **Medium-Low Priority** — AC Output Inverter & Software Breaker Telemetry (`50 ms` fast / `250 ms` slow)
-- `0x600` – `0x6FF`: **Low Priority** — Node Heartbeats & Local State Status (`100 ms`)
-- `0x700` – `0x7FF`: **Lowest Priority** — Node Identity (Serial Numbers), Discovery, Configuration & Command Acknowledgements (`1000 ms` / On-demand)
+- `0x120` – `0x167`: **High Priority** — Addressed main-bus control (`0x120 + GlobalNodeID`)
+- `0x1A0` – `0x1AF`: **High Priority** — Solar gateway child-control routing (payload TBD)
+- `0x1B0` – `0x1BF`: **High Priority** — Solar gateway routed replies (payload TBD)
+- `0x200` – `0x2FF`: **Medium-High Priority** — Battery telemetry (`100 ms` fast / `1 s` slow)
+- `0x300` – `0x3FF`: **Medium Priority** — Boost telemetry (`50 ms`)
+- `0x400` – `0x4FF`: **Medium Priority** — Solar-local telemetry, Generator/Grid telemetry, Solar gateway summaries
+- `0x500` – `0x5FF`: **Medium-Low Priority** — Inverter telemetry (`200 ms`)
+- `0x600` – `0x6FF`: **Low Priority** — Node heartbeats (type-specific periods)
+- `0x700` – `0x7FF`: **Lowest Priority** — Node identity, provisioning, and ACKs
+
+The allocation table describes the main bus unless explicitly marked gateway-local. Solar child identifiers may overlap main-bus IDs because their segments are isolated; a Solar gateway aggregates/filters upstream and is not a transparent repeater.
 
 ## 3. Timing & Watchdog Hierarchy
 
-Node heartbeats are transmitted every `100 ms`. A node that misses the Coordinator heartbeat for more than `500 ms` enters its locally defined degraded behavior. The frame format and detailed timing rules are specified in [`CAN_Messages_Definitions.md`](./CAN_Messages_Definitions.md).
+The Coordinator heartbeat is `100 ms`. Node heartbeats use type-specific periods: Boost/Solar child `100 ms`, Battery/Inverter `250 ms`, Generator/Grid/Display `1 s`, and Solar gateway `100 ms`. Missing-node deadlines are Boost/Solar gateway `500 ms`, Battery/Inverter `1 s`, and Generator/Grid/Display `3 s`; Solar children are monitored by their gateway at `500 ms`. The frame format and detailed timing rules are specified in [`CAN_Messages_Definitions.md`](./CAN_Messages_Definitions.md).
 
 CAN is supervisory communication only. Fast cycle-by-cycle current loops and hardware fault protection shall remain local to each power module and shall not depend on CAN timing or availability. Bulk bus capacitance does not replace local control or protection.
 
@@ -40,4 +45,4 @@ CAN is supervisory communication only. Fast cycle-by-cycle current loops and har
   - **Inverter Nodes:** Maintain `60 Hz` AC output while `380 VDC` remains within valid bounds (`360 V`–`400 V`) and local `I²t` / short-circuit protection remains active.
   - **Generator & Grid Interface Nodes:** Safely ramp down power import/generation and isolate (`Generator` completes engine cooldown before shutdown; `Grid Interface` opens AC and DC contactors).
 
-The configured Boost instance 0 wire profile is frozen for communications-simulator development; see [`CAN_Messages_Definitions.md`](./CAN_Messages_Definitions.md), Section 3.6.1. This is a node-specific exception, not approval of the remaining project-wide application protocol.
+The working Boost 0 profile uses its registry-assigned IDs; see [`CAN_Messages_Definitions.md`](./CAN_Messages_Definitions.md), Section 3.6.1. Solar gateway payloads and physical gateway implementation remain open. The CAN channel remains supervisory; local control and protection must work without it.
