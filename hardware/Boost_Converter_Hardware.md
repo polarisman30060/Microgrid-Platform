@@ -2,8 +2,8 @@
 
 ## Module Scope
 - **Operational Role:** Steps up the `96VDC Energy Bus` (`±5%` regulation) to the `380VDC Inverter Bus` at **10kVA continuous** (`15kW` short-term peak) per module.
-- **Control Architecture:** Local **STM32G474QE** 4-layer daughter card running `HRTIM1` with `72°` hardware phase shifting across 5 interleaved stages, paired with a local `1.3-inch` OLED status display.
-- **Communication:** Galvanically isolated **CANbus** (`STM32G474QE` `FDCAN` interface) via a CAN isolator whose bus-side rail is powered by the **30V 50kHz** common auxiliary power source, supporting master/slave current-matching load balancing and Coordinator telemetry (application protocol **TBD**).
+- **Control Architecture:** Local **STM32G474QE** 4-layer daughter card running `HRTIM1` with `72°` hardware phase shifting, active per-phase current balancing, and dynamic phase shedding across 5 interleaved stages, paired with the common control card's Waveshare `1.3-inch` SPI LCD + keypad HAT ([STM32_Control_Card_Architecture.md](./STM32_control_card/STM32_Control_Card_Architecture.md)).
+- **Communication:** Galvanically isolated **CANbus** (`STM32G474QE` `FDCAN` interface, `500 kbps` Classic CAN via `TI ISO1042DWV` on the common control card) supporting master/slave current-matching load balancing and Coordinator telemetry per [`../protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md) (`TELEM_BOOST_FAST` `0x300+`, draft `TELEM_BOOST_SLOW` `0x310+`).
 
 ## Power Stage & Semiconductors
 - **Switching Frequency:** **40 kHz per phase** (`200 kHz` effective ripple frequency across the 5 interleaved stages).

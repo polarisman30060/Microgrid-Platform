@@ -30,7 +30,7 @@ The Battery Node uses a commercial off-the-shelf (COTS) **DALY BMS** for cell-le
   - **Data Exchanged:** Pack state-of-charge (`SOC`), individual cell min/max voltages, pack temperature, charge/discharge MOSFET status, and BMS protection fault flags.
 - **External System Communication (Converter ➔ Coordinator):**
   - **Physical Layer:** Galvanically isolated **CANbus** (`STM32G474QE` `FDCAN` peripheral via a CAN isolator whose bus-side transceiver rail is powered by the **30V 50kHz** common auxiliary power source).
-  - **Application Protocol:** **To Be Defined (TBD)** in a future specification phase. The `STM32G474QE` acts as a strict protocol gateway, encapsulating local DALY BMS telemetry and converter power metrics onto the System Coordinator CANbus once defined.
+  - **Application Protocol:** Uses the working Classical CAN 2.0B registry in [`../protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md) (`GlobalNodeID 0x01–0x05`, `TELEM_BATTERY_FAST` `0x200+`, `TELEM_BATTERY_SLOW` `0x210+`). The `STM32G474QE` acts as a strict protocol gateway, encapsulating local DALY BMS telemetry and converter power metrics onto the System Coordinator CANbus.
 - **Protection Role:** Acts as the primary cell-level hardware disconnect (over-voltage, under-voltage, over-temperature, and short-circuit cutoff) independent of the Charger/Discharger control loop.
 
 ---
@@ -50,7 +50,7 @@ This module houses the **STM32G474QET6** local node controller on a 4-layer daug
   - `0.1µF / 250V` polypropylene film snubbers (`KEMET R76`) close-coupled across switching legs.
   - Parallel banks of `220µF / 160V` low-ESR electrolytic capacitors (`United Chemi-Con`) on both battery and `96VDC` bus terminals.
 - **Bus Interface & Contactors:**
-  - Standardized `24VDC` coil Pre-Charge Bypass Contactor (`PC6`) with series ceramic power resistor (`10Ω–50Ω`, `50W`) and Main Isolation Contactor (`PC7`), powered via the **30V 50kHz** common auxiliary power source.
+  - Standardized `24VDC` coil Pre-Charge Bypass Contactor (`CONT_CMD1` / `PD2`, `J1:32`) with series ceramic power resistor (`10Ω–50Ω`, `50W`) and Main Isolation Contactor (`CONT_CMD2` / `PD7`, `J1:33`), powered via the **30V 50kHz** common auxiliary power source (pin assignments per draft [`STM32_control_card/STM32_Control_Card_Pinout.md`](./STM32_control_card/STM32_Control_Card_Pinout.md)).
 - **Telemetry Acquisition:**
   - **Inductor Current:** `Allegro ACS37002` / `ACS372` Hall-effect sensor (`PB0` / `ADC3_IN12`).
   - **Battery Voltage:** Precision divider (`47kΩ / 1.5kΩ`) (`PA0` / `ADC1_IN1`).

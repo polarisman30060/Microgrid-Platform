@@ -16,9 +16,9 @@
 - **MCU Part Number:** STMicroelectronics **STM32G474QET6** (and compact `STM32G474CE`/`RE` packages for per-panel Solar MPPT nodes)
 - **Key Peripherals Utilized:**
   - **HRTIM1 (High-Resolution Timer):** `184 ps` clock resolution for complementary PWM generation, dead-time insertion, and sub-microsecond hardware fault overrides.
-  - **FDCAN Controller (Classic CAN Mode):** Configured strictly in **Classical CAN 2.0B mode** (`FDCAN_FRAME_CLASSIC`, non-FD) at `500 kbps` using standard 11-bit identifiers (`0x000`–`0x7FF`) via isolated transceivers (`TI ISO1050`) for full compatibility with the Coordinator's ESP32-S3 TWAI interface.
+  - **FDCAN Controller (Classic CAN Mode):** Configured strictly in **Classical CAN 2.0B mode** (`FDCAN_FRAME_CLASSIC`, non-FD) at `500 kbps` using standard 11-bit identifiers (`0x000`–`0x7FF`) via isolated transceivers (draft control-card baseline: `TI ISO1042DWV`, `5 kVrms`; see [`../hardware/STM32_control_card/STM32_Control_Card_Mechanical_and_Power.md`](../hardware/STM32_control_card/STM32_Control_Card_Mechanical_and_Power.md)) for full compatibility with the Coordinator's ESP32-S3 TWAI interface.
   - **12-Bit ADCs:** Synchronized sampling of isolated voltage and current channels.
-- **Local Diagnostics Display:** Onboard `1.3-inch` OLED display module mounted on each accessible enclosure chassis to display `GlobalNodeID`, firmware version, permanent serial number, and active operating states without external diagnostic tools (omitted on inaccessible roof-mounted Solar MPPT modules).
+- **Local Diagnostics Display:** Directly mounted **Waveshare `1.3-inch` SPI IPS LCD + keypad HAT** (`ST7789`, `240×240`, replacing the earlier `1.3-inch` OLED concept; see [`../hardware/STM32_control_card/STM32_Control_Card_Architecture.md`](../hardware/STM32_control_card/STM32_Control_Card_Architecture.md)) on each accessible control card to display `GlobalNodeID`, firmware version, permanent serial number, and active operating states without external diagnostic tools (omitted on inaccessible roof-mounted Solar MPPT modules).
 
 ---
 
@@ -34,10 +34,12 @@
 
 Every power module interfacing with the `96VDC Energy Bus` utilizes an identical dual-contactor arrangement powered by a local `24VDC` rail rectified from the `30V 50kHz` lifeline:
 
-| Function | STM32G474 Pin | Low-Side Driver | Purpose |
+| Function | STM32G474 Pin (Draft Control Card) | Low-Side Driver | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Pre-Charge Bypass Contactor (`Q_PRE`)** | `PC6` | `NVD5117PL` / `IRLR2905` (DPAK) | Closes in series with a chassis-mounted ceramic power resistor (`10Ω–50Ω`, 50W) to equalize bus and module capacitance (`ΔV ≤ 1.5V`). |
-| **Main Isolation Contactor (`Q_ISOL`)** | `PC7` | `NVD5117PL` / `IRLR2905` (DPAK) | Closes once pre-charge completes to carry continuous power; opens immediately upon local hardware or software fault trips. |
+| **Pre-Charge Bypass Contactor (`Q_PRE`)** | `PD2` (`CONT_CMD1`, `J1:32`) | `NVD5117PL` / `IRLR2905` (DPAK) | Closes in series with a chassis-mounted ceramic power resistor (`10Ω–50Ω`, 50W) to equalize bus and module capacitance (`ΔV ≤ 1.5V`). |
+| **Main Isolation Contactor (`Q_ISOL`)** | `PD7` (`CONT_CMD2`, `J1:33`) | `NVD5117PL` / `IRLR2905` (DPAK) | Closes once pre-charge completes to carry continuous power; opens immediately upon local hardware or software fault trips. |
+
+*Note:* Earlier hardware baselines listed `PC6`/`PC7`; the draft [STM32 Control Card Pinout](../hardware/STM32_control_card/STM32_Control_Card_Pinout.md) reassigned `PC6`/`PC7` to `HRTIM1_CHF1/2` (required by the Generator module) and placed up to three contactor commands on `PD2`, `PD7`, and `PD14` (`J1:32–34`) with auxiliary feedbacks on `PE3–PE5` (`J1:35–37`).
 
 - **Flyback Protection:** High-speed `MUR120` Schottky diodes placed directly across every contactor coil.
 - **Degraded Mode Contactor Behavior:** Loss of CAN communication from the Coordinator (`> 500 ms`) transitions the module into `DEGRADED_AUTONOMOUS` mode rather than opening `Q_ISOL`, provided local electrical and thermal parameters remain within safe bounds.

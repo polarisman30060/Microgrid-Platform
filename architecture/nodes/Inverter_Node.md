@@ -57,7 +57,7 @@ The Inverter Node converts DC power from the 380VDC Inverter Bus into regulated 
 
 ## Coordinator Interaction
 
-- Transmits periodic heartbeats (`100 ms`), real-time AC load telemetry, and circuit-breaker trip states
+- Transmits periodic heartbeats (`250 ms`), real-time AC load telemetry (`200 ms`), and circuit-breaker trip states
 - Receives output enable commands and operator-initiated software circuit-breaker resets from the Coordinator HMI/web interface
 - Maintains autonomous AC output regulation and local breaker protection during Coordinator communication loss (`>500 ms`)
 

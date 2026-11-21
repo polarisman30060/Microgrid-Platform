@@ -61,10 +61,9 @@ The Battery Node provides a standardized energy storage interface between a batt
 
 ## Coordinator Interaction
 
-- Transmits periodic heartbeats (`100 ms`) and bus telemetry
-- Receives startup, standby, and parallel current-sharing setpoints from the Coordinator
-- Transitions to deterministic Primary/Secondary fallback behavior if Coordinator communications are lost (`>500 ms`)
-- 
+- Transmits periodic heartbeats (`250 ms`) and fast (`100 ms`) / slow (`1 s`) battery telemetry
+- Receives startup, standby, fleet mode, and current-limit setpoints from the Coordinator
+- Transitions to autonomous `96VDC` V-I droop regulation (holding the `30V 50kHz` auxiliary lifeline active) if Coordinator communications are lost (`>500 ms`)
 ## Fault Handling Behavior
 
 - The Battery Node shall autonomously enter a protective state when a safety limit is exceeded.

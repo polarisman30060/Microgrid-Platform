@@ -84,11 +84,12 @@ The main bus supports the registry-assigned Battery, Boost, Generator, Grid Inte
 
 ### 4.3 High-Voltage DC-DC Boost Subsystem (Boost Nodes)
 * **Function:** Steps the `96 VDC` primary bus up to the `380 VDC` inverter link at `10 kVA` modular capacity per unit.
-* **Topology:** 5-phase interleaved boost architecture operating at low switching frequencies (`<= 40 kHz` per phase).
-* **Benefits of 5-Phase Interleaving:**
+* **Topology:** **5-phase interleaved boost converter** operating at low switching frequencies (`<= 40 kHz` per phase) with **active per-phase current balancing** and **active phase shedding**.
+* **Benefits of 5-Phase Interleaving, Balancing & Shedding:**
   * Multiplies effective ripple frequency by `5x`, drastically shrinking input/output ripple current stresses on the capacitor banks.
-  * Splits high primary bus currents across five parallel custom-wound inductors and power switch legs.
-  * Enables phase-shedding at light loads to maximize standby conversion efficiency.
+  * Splits high primary bus currents across five parallel custom-wound inductors and power switch legs, with local closed-loop per-phase current balancing to prevent thermal or magnetic runaway in any single phase.
+  * Dynamically sheds idle phases at light loads (re-indexing phase angles) to maximize standby conversion efficiency.
+* **Telemetry Note:** Reporting **how many phases are active** (1–5) at any time—along with phase-shedding and phase-balance health—is useful operational telemetry for the Coordinator/HMI and fits naturally as a **slow telemetry** message (e.g., `1 s` cadence).
 
 ### 4.4 AC Inverter & Software Circuit Breaker Subsystem (AC Output Nodes)
 * **Function:** Synthesizes clean `60 Hz` sinusoidal AC power directly from the `380 VDC` link while acting as solid-state/hybrid residential branch breakers.

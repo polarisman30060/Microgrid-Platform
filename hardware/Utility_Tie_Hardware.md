@@ -2,8 +2,8 @@
 
 ## Module Scope
 - **Operational Role:** Bidirectional or unidirectional grid interface converting `120VAC / 240VAC` utility power onto the `96VDC Energy Bus` (`10.8kW` continuous rating) with active power factor correction (`PFC`).
-- **Control Architecture:** Local **STM32G474QE** 4-layer daughter card running `180°` out-of-phase interleaved `HRTIM1` PWM loops, paired with a `1.3-inch` OLED display.
-- **Communication & Auxiliary Power:** Galvanically isolated **CANbus** (`STM32G474QE` `FDCAN` interface) via a CAN isolator whose bus-side transceiver rail is powered by the **30V 50kHz** common auxiliary power source (application protocol **TBD**). Local control bias and `24VDC` contactors are also powered from the **30V 50kHz** source.
+- **Control Architecture:** Local **STM32G474QE** 4-layer daughter card running `180°` out-of-phase interleaved `HRTIM1` PWM loops, paired with the common control card's Waveshare `1.3-inch` SPI LCD + keypad HAT ([STM32_Control_Card_Architecture.md](./STM32_control_card/STM32_Control_Card_Architecture.md)).
+- **Communication & Auxiliary Power:** Galvanically isolated **CANbus** (`STM32G474QE` `FDCAN` interface, working registry in [`../protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md)) with local control bias and `24VDC` contactors derived from the **30V 50kHz** common auxiliary power source.
 
 ## Power Stage & Sensing Requirements
 - **Topology:** Two-phase interleaved active PFC stage to reduce input current ripple, shrink EMI filter volume, and distribute thermal load across parallel switching legs.

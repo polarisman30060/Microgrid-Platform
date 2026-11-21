@@ -21,7 +21,7 @@ The system is built around two primary DC power buses and one un-interruptible a
 
 ## 96VDC Energy Bus
 
-The 96VDC bus (`86.4V–105.6V`, `±5%` regulation) is the primary system energy bus.
+The 96VDC bus (`91.2V–100.8V`, `±5%` normal regulation; `84.0V–108.0V` fault bounds) is the primary system energy bus.
 
 All energy sources and storage systems connect to this bus.
 

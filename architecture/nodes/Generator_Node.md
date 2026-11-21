@@ -62,7 +62,7 @@ The Generator Node interfaces a petrol-driven starter-generator prime mover with
 
 ## Coordinator Interaction
 
-- Transmits periodic heartbeats (`100 ms`), operating mode, RPM, and power telemetry
+- Transmits periodic heartbeats (`1 s`), operating mode, RPM, and power telemetry (`500 ms`)
 - Receives engine start/stop dispatch requests and target generation power limits from the Coordinator
 - Executes a controlled cooldown and shutdown if Coordinator communications are lost (`>500 ms`) while generating
 

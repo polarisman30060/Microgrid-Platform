@@ -26,6 +26,7 @@ The Coordinator firmware transmits its normal heartbeat and parses Battery 0 ide
 
 ## Documentation
 
+- [Project engineering punchlist](docs/Project_Punchlist.md)
 - [Software design constraints](docs/Software_Design_Constraints.md)
 - [Coordinator CAN implementation guide](docs/Coordinator_CAN_Implementation.md)
 - [PC microgrid simulator requirements](docs/Microgrid_Simulator_Requirements.md)

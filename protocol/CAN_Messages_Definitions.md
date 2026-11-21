@@ -152,6 +152,26 @@ The provisional command schedule is event/on-change based for ordinary nodes. Ac
   * Bit 6: Role (`1`=Designated Primary Boost, `0`=Secondary Boost)
   * Bit 7: Autonomous Droop Mode Active
 
+### 3.6.0 `0x310 + Instance` — `TELEM_BOOST_SLOW` (DLC: 8, `1 s` Periodic — Draft Candidate)
+
+Each Boost Node is a **5-phase interleaved boost converter** with **active phase shedding** and **active per-phase current balancing**. While `TELEM_BOOST_FAST` (`0x300 + Instance`, `50 ms`) carries real-time bus metrics and a 5-bit active-phase mask, slower operational diagnostics—especially **how many phases are currently active** (`0–5`), per-phase current balance spread, shedding/rotation status, and inductor thermal health—do not require `50 ms` bus bandwidth.
+
+This draft mirrors Battery's `0x200`/`0x210` fast/slow split (`0x310–0x314` for Boost instances `0–4`). It is **not yet active** in the reopened Boost 0 working profile (Section 3.6.1) or current simulators until reviewed and promoted.
+
+* **Byte 0 (`uint8`):** `Active_Phase_Count` (`0`–`5`; number of currently active switching phases)
+* **Byte 1:** `Phase_Shed_And_Thermal_Flags`
+  * Bits `0–4`: Active Interleaved Phase Mask (`Stages 1–5`)
+  * Bits `5–6`: Shedding Mode (`0`=Auto_Load_Shed, `1`=Forced_All_5, `2`=Derated_Phase_Fault, `3`=Standby)
+  * Bit 7: Inductor Overtemperature Snap-Disc Alarm (`1`=Tripped/Warning)
+* **Bytes 2–3 (`uint16`):** `Phase_Current_Spread` (`0.1 A/bit`; `max_active_phase_I - min_active_phase_I`, highlights per-phase balancing health)
+* **Bytes 4–5 (`uint16`):** `Max_Active_Phase_Current` (`0.1 A/bit`; highest single-phase inductor current)
+* **Byte 6 (`int8`):** `Secondary_Or_Inductor_Temp_C` (`1 °C/bit`, signed; `-128` = sensor not fitted / unavailable)
+* **Byte 7:** `Balance_And_Rotation_Status`
+  * Bits `0–2`: Current Lead / Wear-Rotation Phase Index (`0`–`4`)
+  * Bit 3: Active Per-Phase Current Balancing Converged (`1`=Balanced)
+  * Bit 4: Thermal Derating Active
+  * Bits `5–7`: Reserved (`0`)
+
 ### 3.6.1 Reopened Boost Instance 0 Communications Profile
 
 Boost instance 0 was previously treated as frozen; that decision has been reopened to apply the system-wide registry. This section records its current working IDs and existing draft behavior; it is not a frozen wire contract and does not define or validate power-stage control, protection, precharge physics, or production commissioning.
