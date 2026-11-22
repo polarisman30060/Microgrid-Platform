@@ -1,91 +1,44 @@
 # Boost Module Control-Card I/O Requirements
 
-Status: Draft functional inventory for the common control card. Signal counts, protection architecture, connector positions, and STM32 pin assignments are not finalized.
+Status: Draft functional inventory (Rev 0.2 — updated for the **10 kW 2-Phase Interleaved Full-Bridge LLC** topology with earth-referenced `400 VDC` / `±200 VDC` split output). Verified 100% compatible with the draft common control card ([`STM32_Control_Card_Pinout.md`](./STM32_Control_Card_Pinout.md)) with zero card PCB changes required.
 
 ## Purpose and Scope
 
-Identify the interface between the common STM32 control card and the 10 kVA, five-phase boost power board. This inventory is derived from the [boost hardware baseline](../Boost_Converter_Hardware.md), [Boost Node definition](../../architecture/nodes/Boost_Node.md), and [control-card architecture](./STM32_Control_Card_Architecture.md). It is not a schematic, complete protection design, or approved connector pinout.
+Identify the interface between the common `STM32G474QET6` control card and the `10 kW` (`2 × 5 kW`) 2-phase interleaved Full-Bridge LLC boost power board described in [`Boost_Converter_Hardware.md`](../boost_converter/Boost_Converter_Hardware.md), [`Boost_Converter_Architecture.md`](../boost_converter/Boost_Converter_Architecture.md), [`Boost_Node.md`](../../architecture/nodes/Boost_Node.md), and [`STM32_Control_Card_Architecture.md`](./STM32_Control_Card_Architecture.md).
 
-The boost module converts the 96 VDC energy bus to the 380 VDC inverter bus. Its baseline specifies five independently controlled boost phases, each switching at 40 kHz, with phase shedding and interleaving. The host power board contains the power switches, isolated gate drivers, sensors, power isolation, and contactor drivers.
+The boost module galvanically isolates and converts the negative-grounded `96 VDC` Energy Bus to the earth-referenced `400 VDC` (`±200 VDC` split-rail) Inverter Bus. Its baseline uses two `90°`-interleaved `100%` SOT-227 primary full-bridges (`f_r = 45.0 kHz`, M4 copper busbars, `TDK U93/76/30` transformers), center-tapped full-bridge SiC Schottky diode rectifiers tied to `HV_MID` (`N/PE`), `PFM` regulation, `PSM` soft-start and active phase-current balance trim, light-load phase shedding, and `HRTIM1` hardware burst mode.
 
 ## Functional Signal Inventory
 
-Directions are relative to the control card. Counts refer to logical signals, not necessarily dedicated MCU pins; the final implementation may use conditioning or other interface circuitry on the host. All electrical ranges and references remain to be specified.
+Directions are relative to the control card. The host power board houses all power switches, isolated gate drivers, magnetics, isolated sensors, hardware fault comparators, and `24 VDC` contactor drivers.
 
-| Function | Direction | Quantity | Status and purpose |
-| --- | --- | --- | --- |
-| Phase PWM commands | Output | 5 | Baseline: one independently controllable PWM command per single-switch phase, with HRTIM interleaving and phase shedding. Verify timer outputs, pin mux, startup states, and timing for the selected MCU. |
-| Phase current measurements | Input | 5 | Baseline: one conditioned analog measurement for each phase. Define sensor range, scaling, filtering, ADC timing and accuracy, including behavior when a phase is shed. |
-| Phase overcurrent trips | Input | 5 sensor outputs, common trip | Any phase sensor's overcurrent output must trigger HRTIM hardware shutdown of all five PWM outputs without an interrupt or software decision. Individual phase identification is not required. The number of card inputs and fault routing are TBD. |
-| 96 V bus voltage | Input | 1 | Baseline: conditioned voltage measurement for control, pre-charge decisions, and protection monitoring. |
-| 380 V bus voltage | Input | 1 | Baseline: conditioned voltage measurement for regulation and protection monitoring. |
-| Bus current measurements | Input | 2 | Measure total input and output bus current separately from the five phase-current sensors. Define sensor ranges, scaling, filtering, and ADC timing. |
-| Heatsink temperature | Input | 1 | One analog heatsink temperature sensor. Define sensor type, placement, conditioning, and measurement range. |
-| Inductor overtemperature | Input | TBD | Overtemperature snap discs are the likely protection method. Disc count, placement, wiring, trip integration, and reporting remain to be decided. |
-| Pre-charge contactor command | Output | 1 | Baseline: control a host-board driver, not the 24 V coil directly. Confirm the pre-charge circuit and its safe de-energized state. |
-| Main isolation contactor command | Output | 1 | Baseline: control a host-board driver, not the 24 V coil directly. Confirm fault and loss-of-power behavior. |
-| Contactor feedback | Input | TBD | Contactor faults are listed, but auxiliary contacts or other feedback methods have not been defined. Distinguish commanded from verified contactor state. |
-| Other hardware fault indication / trip | Input | TBD | Define protective trips beyond phase overcurrent and their reporting interfaces. Decide which faults are common or individually identifiable and how they are latched and reset. |
-| Gate-driver status or enable | Input / output | TBD | Determine available driver status and any separate enable or interlock signals from the selected driver and host design; do not assume one per phase. |
+| Function | Direction | Quantity | Control Card Mapping | Purpose & Notes |
+| :--- | :--- | :---: | :--- | :--- |
+| **Primary Full-Bridge PWM (Ph1 & Ph2)** | Output | **8** (`4` comp. pairs) | `J2:1..2` (`CHA1/2`), `J2:5..6` (`CHB1/2`), `J2:7..8` (`CHC1/2`), `J2:11..12` (`CHD1/2`) | Ph1 uses `Timer A` (`0°`) + `Timer B` (`180°−φ₁`); Ph2 uses `Timer C` (`90°`) + `Timer D` (`270°−φ₂`). Supports PFM, PSM soft-start, per-phase PSM balancing, shedding, and hardware burst mode. (`CHE1/2`, `CHF1/2` remain spare.) |
+| **Shared Gate-Driver Enable** | Output | **1** | `J2:25` (`PD15` / `GATE_EN`) | Hardware enable for all 4 dual isolated gate drivers; must default OFF (`10 kΩ` pull-down) during reset, power loss, or card removal. |
+| **Fast Hardware Fault Trip** | Input | **1** | `J2:19` (`PA12` / `HRTIM1_FLT1`) | Asynchronous (`< 1 µs`) wired-OR hardware trip: Ph1/Ph2 resonant tank OC comparators, `96 V` bus OC (`ACS37002`), `V_HV+`/`V_HV-` fast OV comparators, and gate-driver UVLO/faults. Latches all 8 PWM outputs OFF in hardware. |
+| **Aux / Thermal Hardware Trip** | Input | **1** | `J2:20` (`PB10` / `HRTIM1_FLT3`) | Fail-safe normally-closed series loop of transformer/resonant-inductor thermal snap discs (`T1`, `T2`, `L_r1`, `L_r2`) and external E-Stop interlock. |
+| **`96 V` Input Bus Voltage** | Input | **1** | `J1:9` (`AIN_01`, `PA0`) | Isolated (`TI AMC1311`) `96 VDC` measurement for pre-charge `ΔV ≤ 1.5 V` check, UV/OV protection, and feedforward. |
+| **`+200 V` (`HV+`) & `-200 V` (`HV-`) Split Rail Voltages** | Input | **2** | `J1:10..11` (`AIN_02..03`, `PA1..PA2`) | Two independent isolated (`TI AMC1311`) measurements relative to `HV_MID` (`PE`). Computes both total `V_400 = V_HV+ + |V_HV-|` and split-rail balance `V_HV+ − |V_HV-|`. |
+| **`96 V` Input & `400 V` Output Bus Currents** | Input | **2** | `J1:12..13` (`AIN_04..05`, `PA3..PA4`) | Isolated `Allegro ACS37002` sensors for power telemetry, parallel module `20 ms` load balancing, and overload protection. |
+| **Ph1 & Ph2 Resonant Tank Currents** | Input | **2** | `J1:14..15` (`AIN_06..07`, `PA5..PA6`) | High-bandwidth isolated CT/Hall RMS-or-peak conditioned sense for Phase 1 / Phase 2 active PSM current-balance trim and `TELEM_BOOST_SLOW` reporting. |
+| **Temperatures (Primary Heatsink & Magnetics/Rectifier)** | Input | **2** | `J1:16..17` (`AIN_08..09`, `PA7`, `PC0`) | Analog NTC/temp conditioning for thermal derating, fan curve, and `TELEM_BOOST_FAST`/`SLOW`. |
+| **Optional `HV_MID` Neutral Current** | Input | **0–1** | `J1:18` (`AIN_10`, `PC1`) | Provisional isolated Hall sensor on `HV_MID` busbar for asymmetric `120 VAC` load diagnostics. |
+| **Contactor & Discharge Commands** | Output | **3** | `J1:32..34` (`PD2`, `PD7`, `PD14`) | `CONT_CMD1`: `Q_PRE` (`96 V` pre-charge); `CONT_CMD2`: `Q_ISOL` (`96 V` main isolation); `CONT_CMD3`: active `400 V` cap-bank discharge / optional HV output disconnect. |
+| **Contactor Mirror Feedbacks** | Input | **3** | `J1:35..37` (`PE3..PE5`) | Auxiliary mirror contacts verifying `Q_PRE`, `Q_ISOL`, and discharge/HV disconnect states to catch welded contacts. |
+| **Cooling Fan PWM & Tachometer** | Out / In | **2** | `J1:30..31` (`PD12`, `PD13`) | `TIM4_CH1` PWM speed command + `TIM4_CH2` tachometer feedback for heatsink and magnetics forced-air cooling. |
 
-Five PWM outputs, ten analog measurements, and five phase-sensor overcurrent outputs are identified. The analog measurements comprise five phase currents, two bus voltages, two bus currents, and one heatsink temperature. The number of MCU fault inputs depends on the selected fault routing; snap-disc, feedback, and other fault signal counts remain open. ADC pins, sampling resources, HRTIM fault inputs, and their routing must be verified; logical signals alone do not establish MCU resource compatibility.
-
-CAN, display/keypad, SWD, and card power are common card functions, not additional boost host I/O. See the [control-card architecture](./STM32_Control_Card_Architecture.md). The existing Nucleo boost simulator does not implement power-stage PWM, ADC, or contactor control and is not a production pin map.
+**Resource Summary:** **8 `HRTIM1` PWM outputs** (of 12 on `J2`), **9–10 analog inputs** (of 16 on `J1`), **2 `HRTIM1` fault inputs** (of 4 on `J2`), **1 `GATE_EN`**, **3 contactor commands + 3 feedbacks**, and **fan PWM/tach**. CAN, Waveshare LCD/keypad HAT, SWD, and card power are common card functions.
 
 ## Control and Protection Boundaries
 
-- The control card generates the five phase commands; host-board isolated gate drivers drive the power switches. Define the off state at each interface and ensure disabled phases remain off during startup, reset, loss of control power, or card removal.
-- Route the five phase-current sensors' overcurrent outputs to a common HRTIM fault path, directly or through suitable host-board fault logic. Any one phase trip must force all five PWM outputs to the gate-driver off state in hardware; individual phase identification is not required. The fault must latch, and the isolation contactor must open. The latch implementation, reset method, and contactor trip path remain to be designed; do not rely on contactor opening for the initial fast PWM shutdown. A phase overcurrent may indicate a hard short in the power electronics. The proposed [ACS37002 family](https://www.allegromicro.com/en/products/sense/current-sensor-ics/integrated-current-sensors/acs37002) supports adjustable overcurrent fault protection; verify the exact part, threshold and output characteristics before specifying the circuit.
-- Hardware overcurrent and other critical trips must inhibit the appropriate switching paths without relying on firmware, CAN, or the display. Determine the response to other faults, how trips interact with the contactors, and what feedback reaches the controller.
-- HRTIM fault shutdown depends on the MCU being powered and correctly configured. Provide an independent host-side safe-disable mechanism for card removal, unpowered or resetting MCU, and other conditions in which the timer cannot enforce protection. Define how sensor power loss and fault-line disconnection are detected or made safe.
-- Establish trip thresholds and the worst-case end-to-end delay, including sensor, fault logic, HRTIM, gate driver, and power switch, against the power stage's safe operating limits. Validate the complete path on hardware; no specific response time is established here.
-- Inductor thermal protection will most likely use snap discs rather than analog inductor-temperature measurements. Their placement, trip and reset characteristics, fail-safe wiring, and integration into the protective trip path must be designed and verified; an MCU indication alone is not the independent protective path.
-- The host supplies appropriately conditioned, protected signals referenced to the card's control domain. Define each sensor's isolation boundary, voltage range, accuracy, and failure behavior; do not connect 96 V or 380 V directly to the control card.
-- The two contactor command signals drive host circuitry. Their physical topology, voltage-monitoring points, coil suppression, feedback, and interlock behavior need separate design and verification.
-- Loss of coordinator communications is not equivalent to a local hardware trip: the boost node's specified Primary/Secondary degraded behavior applies while local protection remains active.
-
-## Pin-Mapping Prerequisites
-
-### Preliminary STM32G474QET6 Resource Check
-
-The supplied [STM32G474 datasheet](../../docs/datasheet/stm32g474qe.pdf) (DS12288 Rev 6, Table 12, pages 59-69) identifies the following non-overlapping candidate functions in the 128-pin LQFP package. These are an initial boost feasibility check, **not an approved common-card pinout**.
-
-| Candidate function | MCU pin | LQFP128 pin | Peripheral function |
-| --- | --- | ---: | --- |
-| Phase PWM A | PA8 | 89 | HRTIM1_CHA1 |
-| Phase PWM B | PA10 | 91 | HRTIM1_CHB1 |
-| Phase PWM C | PB12 | 66 | HRTIM1_CHC1 |
-| Phase PWM D | PB14 | 68 | HRTIM1_CHD1 |
-| Phase PWM E | PC8 | 87 | HRTIM1_CHE1 |
-| Common overcurrent trip | PA12 | 93 | HRTIM1_FLT1 |
-| CAN receive / transmit | PD0 / PD1 | 108 / 109 | FDCAN1_RX / FDCAN1_TX |
-| Display clock / data | PA5 / PA7 | 34 / 36 | SPI1_SCK / SPI1_MOSI |
-| Debug | PA13 / PA14 | 96 / 98 | SWDIO / SWCLK |
-
-PA12 also supports FDCAN1_TX, so CAN cannot use PA12 when it is assigned to HRTIM1_FLT1. PD0/PD1 are one alternative. The remaining display controls and eight keypad inputs, the two contactor outputs, other host signals, clocks, and dedicated support pins have not yet been allocated.
-
-Ten distinct ADC-capable candidates remain available without overlapping the functions above: PC0-PC3, PA0-PA3, PB0, and PB1 (datasheet Table 12, pages 59-61). They are examples, not signal assignments. Pin availability does not establish that the sampling schedule, analog performance, or simultaneous conversion requirements are met.
-
-The [STM32G4 reference manual](../../docs/datasheet/rm0440-stm32g4-series-advanced-armbased-32bit-mcus-stmicroelectronics.pdf) (RM0440 Rev 9, section 28.3.17, pages 963-967) states that fault channels can be associated with multiple timing units and configured to force outputs to a defined fault state. The unfiltered fault path is asynchronous. The fault state is maintained until software re-enables the outputs; a persistent fault prevents re-enabling. This supports investigating a common trip for all five phases, but the complete latching, reset, host interlock, and contactor implementation remains unverified.
-
-### Remaining Work
-
-1. Define the remaining signal counts and fault behavior with the boost power-board design.
-2. Verify five independent HRTIM phase outputs and their 40 kHz timing, phase shifts, and shedding behavior against the STM32G474QET6 datasheet and reference manual.
-3. Allocate ADC channels and trigger timing for the phase-current and bus measurements, including latency, concurrent sampling needs, and noise constraints.
-4. Reserve common display, CAN, SWD, clock, and MCU support pins, then resolve alternate-function conflicts and map usable remaining GPIO to the host connector.
-5. Check the same candidate mapping against the other intended power modules before freezing the common card and connector.
+- **Galvanic Separation:** Primary `96 V` (`LV_BUS-` to `PE`), secondary `±200 V` (`HV_MID` to `PE`), and control `GND_CTRL` are strictly isolated across `≥ 4 kVrms` reinforced barriers. Never connect `96 V` or `±200 V` rails directly to control-card pins.
+- **Inherent Fault Interruption:** Because series resonant capacitors (`C_r1`, `C_r2`) and HF transformers block DC, asserting `HRTIM1_FLT1` (`< 1 µs`) stops all energy flow from `96 V` to `400 V` immediately—before `Q_ISOL` opens.
+- **Hardware Default-Off & UCPD Caveat:** Host board must provide `10 kΩ` pull-downs on `J2:1..12` (`CHA1..CHD2`), `GATE_EN` (`PD15`), and `CONT_CMD1..3` so all switches and contactors stay OFF on reset, power loss, or card removal. Firmware must set `PWR_CR3.UCPD1_DBDIS = 1` during early init before enabling `PA9`/`PA10` (`CHA2`/`CHB1`).
+- **Capacitive-Mode Prevention:** Firmware enforces a hard minimum switching frequency floor (`f_min = 28 kHz`, above the inductive-capacitive boundary) and monitors `FLT1` tank overcurrent so the LLC never operates in hard-switched capacitive mode.
 
 ## Open Decisions
 
-- What heatsink sensor type, placement, and conditioning should be used?
-- How many inductor snap discs are required, where are they placed, and how are their trips wired, reported, latched, and reset?
-- How should the common overcurrent trip be latched and reset, and how should it cause the isolation contactor to open?
-- How should the five sensor outputs be routed to HRTIM fault inputs, and what independent host-side disable protects startup, reset, card removal, sensor power loss, and broken fault lines?
-- Are auxiliary-contact feedback or other verification signals required for each contactor?
-- Does the host need separate gate-enable, driver status, fan control, or other signals?
-- What are the ADC accuracy, measurement bandwidth, control-loop timing, isolation, and host connector requirements?
-
-## Verification
-
-Before releasing a pinout, trace every required function to a compatible MCU peripheral and connector position, and validate the mapping with all supported module inventories. Before operating the power stage, verify the host's default-off and hardware-trip behavior, sensor scaling and fault handling, contactor sequencing and feedback, and phase-shedding timing using appropriate isolated test equipment and a controlled test procedure.
+- Confirm CT vs. high-bandwidth Hall (`ACS37030`) conditioning topology (peak-hold vs. RMS-to-DC vs. synchronized HRTIM ADC sampling) for `I_res_Ph1` / `I_res_Ph2`.
+- Confirm whether `CONT_CMD3` drives an active `400 V` bleeder discharge FET or a 2-pole HV output contactor (passive SiC diodes already block reverse current from parallel modules).
+- Validate end-to-end propagation delay from resonant tank OC comparator → `HRTIM1_FLT1` → `UCC21520` → MOSFET gate off on bench hardware (`< 500 ns` target).

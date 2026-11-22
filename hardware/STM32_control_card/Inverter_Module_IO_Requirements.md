@@ -6,7 +6,7 @@ Status: Draft functional inventory. Signal counts, gate-driver architecture, con
 
 Identify control-card interfaces for the two inverter variants described in the [inverter hardware baseline](../Inverter_Modules_Hardware.md) and [Inverter Node definition](../../architecture/nodes/Inverter_Node.md). The common card is described in the [control-card architecture](./STM32_Control_Card_Architecture.md).
 
-Variant A uses a two-leg H-bridge for 120 VAC. Variant B uses a three-leg bridge for 240 VAC split phase with an active neutral. The module converts the 380 VDC bus to AC and supports synchronized parallel operation. This document inventories signals; it does not define the complete inverter protection or gate-drive design.
+Variant A uses a **single-leg half-bridge** for `120 VAC` (`L1` referenced to Earth-bonded `HV_MID = N = PE`). Variant B uses a **two-leg half-bridge** for `120/240 VAC` split-phase (`L1` and `L2` `180°` out of phase, referenced to `HV_MID = N = PE`), with `HRTIM1_CHC1/CHC2` kept spare if an optional local active midpoint balancer is ever populated. The module converts the earth-referenced `400 VDC` (`±200 VDC` split-rail) bus to AC and supports synchronized parallel operation. This document inventories signals; it does not define the complete inverter protection or gate-drive design.
 
 ## Functional Signal Inventory
 
@@ -14,31 +14,31 @@ Directions are relative to the control card. A logical measurement is not necess
 
 | Function | Direction | Quantity | Status and purpose |
 | --- | --- | --- | --- |
-| Bridge gate commands | Output | 4 for 120 V; 6 for 240 V | The STM32 supplies separate high- and low-side PWM commands for each bridge leg: two legs for 120 VAC, three for 240 VAC. Define gate-driver interface, dead time, timing, and default-off behavior. |
+| Bridge gate commands | Output | **2** for `120 V`; **4** for `240 V` (+2 optional spare) | The STM32 supplies separate high- and low-side PWM commands for each half-bridge leg: one leg (`CHA1/2`) for `120 VAC`, two legs (`CHA1/2`, `CHB1/2`) for `120/240 VAC` (`CHC1/2` spare). Define gate-driver interface, dead time, timing, and default-off behavior. |
 | Gate-driver enable | Output | 1 shared for each variant | A shared command enables or disables all bridge gate drivers through the host board. Define the interface and ensure a disabled default on reset, loss of card power, or card removal. Independent hardware fault shutdown is still required. |
-| DC input voltages | Input | 2 for each variant | Measure the upstream 380 VDC bus and the inverter input-capacitor voltage on the load side of the DC disconnect, including for precharge assessment. Define sensing, scaling, isolation, and ADC timing. |
-| AC output voltage | Input | 1 for 120 V; 2 for 240 V | Measure output voltage on the 120 V variant. For 240 V, measure L1-N and L2-N. Define sensing, scaling, isolation, and ADC timing. |
-| AC output current | Input | 1 for 120 V; 2 for 240 V | Measure output current on the 120 V variant. The 240 V variant measures 240 V output current and neutral current for split-phase imbalance monitoring. No dedicated sensor overcurrent trip output is currently specified; define sensor placement and verify short-circuit protection. |
+| Split DC input voltages (`HV+` & `HV-`) | Input | **2–3** for each variant | Measure `+200 VDC` (`HV+` to `HV_MID`) and `-200 VDC` (`HV-` to `HV_MID`) plus optional load-side cap voltage across the 2-pole DC disconnect for precharge assessment, rail-balance check, and protection. |
+| AC output voltage | Input | 1 for `120 V`; 2 for `240 V` | Measure `L1–N` (`HV_MID`) on the `120 V` variant; `L1–N` and `L2–N` on the `240 V` variant. |
+| AC output & residual (GFCI) current | Input | 2 for `120 V`; 3 for `240 V` | Measure `L1` current (120 V) or `L1` and `L2` currents (240 V), plus differential/residual ground-fault current (`GFCI/RCD` CT) for residential earth-fault protection. |
 | Heatsink temperature | Input | 1 for each variant | One analog heatsink temperature sensor. Choose sensor type, placement, and conditioning. |
-| Synchronization input | Input | 1 | A slave receives the master's zero-crossing reference. The card must make a hardware-timer-compatible input available through the host interface. |
-| Synchronization output | Output | 1 | A master provides the zero-crossing reference to parallel inverters. Make a timer-associated output available through the host interface; define the line driver and isolation. |
-| Hardware trip | Input | 1 common HRTIM fault input | The host combines applicable hardware faults, including gate-driver faults, into a common trip to shut down all bridge PWM outputs. Define other fault sources, host logic, reporting, and electrical characteristics. |
-| AC output contactor command | Output | At least 1 | Each variant specifies an output contactor; drive the host-board coil driver, not the coil directly. Confirm coil and pole arrangement. |
-| DC-side disconnect command | Output | 1 for each variant | Command a per-inverter DC-side disconnect through a suitable host-board driver. Define the disconnect device, electrical interface, and safe state. |
-| DC input precharge command | Output | 1 provisional for each variant | Reserve a command for a host-side precharge path. Confirm the need, circuit, electrical interface, and safe state as the power stage is designed. |
-| AC contactor feedback | Input | 1 for each variant | One feedback signal per inverter. Define the contact or other sensing method; a single signal does not necessarily verify each pole of the 240 V contactor. |
-| DC disconnect feedback | Input | 1 for each variant | Separate feedback for the DC-side disconnect. Define the sensing method and what it can verify. |
-| Cooling fan speed control | Output | 1 for each variant | PWM fan-speed command to a suitable host-side fan interface. Define levels, frequency, electrical drive, and default behavior. |
-| Cooling fan tachometer | Input | 1 for each variant | Fan tachometer feedback. Define signal conditioning, voltage levels, and timing requirements. |
-| Other host control/status | Input / output | TBD | Identify any additional gate-driver status and sensing required by the host design. |
+| Synchronization input | Input | 1 | A slave receives the master's zero-crossing reference (`HRTIM1_SCIN` / timer capture). |
+| Synchronization output | Output | 1 | A master provides the zero-crossing reference to parallel inverters (`HRTIM1_SCOUT` / timer output). |
+| Hardware trip | Input | 1 common HRTIM fault input | The host combines applicable hardware faults (gate-driver desat/UVLO, instantaneous AC OC, GFCI trip, DC bus OV) into `HRTIM1_FLT1` to shut down all bridge PWM outputs. |
+| AC output contactor command | Output | 1 | Commands host-board driver for AC line air-gap disconnect (`1-pole` `L1` for 120 V; `2-pole` `L1`/`L2` for 240 V; Neutral remains continuously bonded to `HV_MID / PE`). |
+| 2-Pole DC-side disconnect command | Output | 1 for each variant | Commands a per-inverter **2-pole DC disconnect** breaking both `HV+` and `HV-` rails. |
+| DC input precharge command | Output | 1 provisional for each variant | Reserve a command (`CONT_CMD3`) for a host-side split-rail precharge path. |
+| AC contactor feedback | Input | 1 for each variant | Auxiliary mirror feedback verifying AC line contactor state. |
+| DC disconnect feedback | Input | 1 for each variant | Separate auxiliary feedback verifying 2-pole `HV+`/`HV-` DC disconnect state. |
+| Cooling fan speed control | Output | 1 for each variant | PWM fan-speed command (`TIM4_CH1`). |
+| Cooling fan tachometer | Input | 1 for each variant | Fan tachometer feedback (`TIM4_CH2`). |
+| Other host control/status | Input / output | TBD | Identify any additional gate-driver status or GFCI self-test signals required by the host design. |
 
 CAN, display/keypad, SWD, and card power are common functions, not additional inverter host I/O. Synchronization and power-stage signals must be assessed alongside them when allocating pins.
 
-The identified analog measurements total five for the 120 V variant and seven for the 240 V variant, including both DC input voltages and the heatsink. Further sensing may be needed as the host design develops.
+The identified analog measurements total **6–7** for the `120 V` variant and **8–9** for the `240 V` variant (well within the 16 ADC channels on `J1`).
 
 ## Preliminary Resource Comparison
 
-The STM32G474QET6 datasheet Table 12 shows the candidate HRTIM pairs PA8/PA9 (A), PA10/PA11 (B), and PB12/PB13 (C) for the separate high- and low-side commands. Two pairs could serve the two-leg variant and all three pairs could serve the three-leg variant. These pins do not overlap the current boost candidate for CAN, SPI clock/data, SWD, or its common fault input. This is a pin-capability check, not a validated gate-drive, timer, or common-card configuration.
+The STM32G474QET6 datasheet Table 12 shows the candidate HRTIM pairs `PA8/PA9` (`A`) and `PA10/PA11` (`B`) for the half-bridge leg commands (with `PB12/PB13` (`C`) spare). One pair serves the `120 V` single-leg half-bridge variant and two pairs serve the `240 V` two-leg split-phase variant. These pins do not overlap CAN, SPI display, SWD, or the common fault input.
 
 The datasheet also lists `HRTIM1_SCIN` on `PB2` (LQFP128 pin 41) and `PB6` (pin 121), and `HRTIM1_SCOUT` on `PB1` (pin 40) and `PB3` (pin 118). `PB2` is ADC-capable, and `PB3` is `JTDO-TRACESWO` (`SWO`); the draft [control-card master pinout](./STM32_Control_Card_Pinout.md) assigns `PB1` (`AF13`) to `HRTIM1_SCOUT` and `PB6` (`AF12`) to `HRTIM1_SCIN` so `PB3` remains dedicated to `SWO` on the debug header.
 
@@ -50,7 +50,7 @@ The [STM32G474 datasheet](../../docs/datasheet/stm32g474qe.pdf), DS12288 Rev 6, 
 
 ## Hardware Boundaries
 
-- The host supplies gate drivers, power-stage sensing and isolation, and the output contactor driver. Never connect AC output or the 380 V bus directly to MCU pins.
+- The host supplies gate drivers, power-stage sensing and isolation, and the output contactor driver. Never connect AC output or the `400 V` (`±200 V`) split bus directly to MCU pins.
 - The STM32 provides both PWM commands for each bridge leg, allowing HRTIM dead-time control. The host gate-drive design must also provide appropriate independent shoot-through protection and safe defaults; specific devices and timing are not selected.
 - Neutral current indicates the imbalance between the split-phase line currents, subject to waveform and current-path conditions. The 240 V output-current measurement and neutral measurement do not automatically provide independent L1 and L2 readings; define the sensor placement and verify that sensing and independent protection are adequate for each conductor under mixed loads.
 - The intended current-mode control is expected to limit current during a hard short, so a dedicated inverter sensor overcurrent trip is not currently specified. This protection is not yet demonstrated: evaluate response time, peak switch and inductor currents, sensor and control failure modes, and the need for independent hardware protection before finalizing the design. The existing inverter baseline's sub-microsecond protection claim remains unverified.

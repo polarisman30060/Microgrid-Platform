@@ -1,32 +1,20 @@
 # Microgrid Platform — Engineering Punchlist ("Digital Punchcard")
 
-Last Updated: 2026-11-20  
+Last Updated: 2026-11-22  
 Status: Living tracking document for open architectural, electrical, hardware, protocol, and firmware gaps across the repository.
 
 Use this list to pick the next high-impact item, verify exit criteria, and check items off as decisions are finalized and verified.
 
 ---
 
-## P0 — Critical Electrical & Safety Architecture (Must Resolve Before Power-Stage Hardware)
+## P0 — Critical Electrical & Safety Architecture (All Architectural Decisions Resolved 2026-11-22)
 
-- [ ] **Resolve `30 V / 50 kHz` Auxiliary Lifeline Multi-Source Parallelism & Fault Isolation**
-  - **Issue:** Multiple Battery Nodes are currently specified to drive a shared `30 V 50 kHz` square-wave AC lifeline ([Hardware_Standards_and_Control_Power.md](Hardware_Standards_and_Control_Power.md), [Battery_and_BMS_Hardware.md](../hardware/Battery_and_BMS_Hardware.md)). Unsynchronized square-wave inverters tied to a common AC bus will short-circuit against one another, and a single shorted module tap could collapse control power for the entire microgrid.
-  - **Decision needed:** Choose one topology — (a) diode-OR'd isolated DC auxiliary rail (e.g., `24–30 VDC`) feeding local isolated DC/DC taps, (b) phase-locked master/slave 50 kHz AC bus with impedance/current limiting, or (c) single-master lifeline with automatic failover.
-  - **Done when:** Waveform (RMS/peak), voltage tolerance, per-tap short-circuit current limiting, multi-battery sharing/failover, and host-board rectifier/regulator ratings are specified in [Hardware_Standards_and_Control_Power.md](Hardware_Standards_and_Control_Power.md).
+*All four P0 architectural blockers are now specified in [`System_Safety_and_Protection_Architecture.md`](System_Safety_and_Protection_Architecture.md) and [`System_Architecture.md`](../architecture/System_Architecture.md). Physical component selection (exact fuse/contactor/GFDI/safety-relay part numbers and bench trip verification) proceeds into hardware bring-up.*
 
-- [ ] **Create Full-System Galvanic Isolation, Grounding & Neutral-Bonding Map**
-  - **Issue:** Inverters are transformerless (`380 VDC → 120/240 VAC`), where residential AC Neutral bonds to Earth (`PE`). Because the 5-phase Boost (`96 V → 380 V`) and Battery (`48 V → 96 V`) converters are non-isolated, Earth-bonding AC Neutral places the `96 VDC` bus, batteries, generator, and rooftop Solar arrays at hazardous potentials relative to Earth — and creates a direct short-circuit path if a non-isolated Utility-Tie PFC connects to Utility Neutral while Inverters are active.
-  - **Decision needed:** Define exact galvanic isolation boundaries across Grid Interface, Boost, Battery, Solar, and Inverter stages, plus DC Ground Fault Detection & Interruption (GFDI) and AC GFCI/RCD strategy.
-  - **Done when:** An authoritative isolation & grounding diagram is added to [System_Architecture.md](../architecture/System_Architecture.md) confirming zero ground/neutral short loops across all operating modes.
-
-- [ ] **Define Boost `96 V → 380 V` Non-Isolated Fault Path, Fusing & Contactor Break Coordination**
-  - **Issue:** In a standard boost topology, gating off the MOSFETs does not block DC fault current from flowing from the `96 VDC` bus through the inductors and SiC boost diodes into a `380 VDC` short. Reliance solely on `Q_ISOL` opening under massive DC fault current risks welded contactors and arc flash.
-  - **Decision needed:** Specify passive DC overcurrent protection (Class-T / semiconductor fuses or solid-state DC breaker) on every Battery pack, `96 V` branch, Boost input, and `380 V` branch; verify `Q_ISOL` DC interrupt ratings; define `380 V` bulk-capacitor active/passive discharge time to `< 48 VDC`.
-  - **Done when:** A system overcurrent coordination and stored-energy discharge table is documented and cross-checked against hardware baselines.
-
-- [ ] **Design Hardwired Emergency Stop (E-Stop) & Rapid Shutdown Interlock**
-  - **Issue:** Local MCU trips and software breakers are defined, but there is no physical, software-independent E-Stop loop (e.g., breaking the `24 VDC` contactor coil supply rail so all main contactors drop open immediately) or NEC 690.12 rooftop Solar Rapid Shutdown strategy.
-  - **Done when:** Hardwired E-Stop topology (keeping control/logging logic alive where safe, or defining full shutdown behavior) and rooftop Solar shutdown requirements are documented.
+- [x] **Resolve Auxiliary Lifeline Multi-Source Parallelism & Fault Isolation** → Migrated to Split Diode-OR'd `24.0 VDC` Regulated Isolated Auxiliary Bus (`AUX_LOGIC_24V` + `AUX_COIL_24V`) with per-tap fuses/eFuses.
+- [x] **Create Full-System Galvanic Isolation, Grounding & Neutral-Bonding Map** → Completed in [`System_Architecture.md`](../architecture/System_Architecture.md) (`400 VDC` / `±200 V` FB-LLC isolated split bus with `HV_MID = N = PE`; `LV_BUS-` single-point grounded via DC GFDI; Battery DAB isolated; Utility-Tie two-stage isolated).
+- [x] **Define DC Overcurrent Fusing, DC GFDI, Contactor Coordination & `400 VDC` Stored-Energy Discharge** → Completed in [`System_Safety_and_Protection_Architecture.md`](System_Safety_and_Protection_Architecture.md) (Class-T / `500 VDC` 2-pole fuses, hermetically sealed DC contactors, `1–5 A` DC GFDI breaker, and fail-safe spring-closed `NC` discharge relays + backup bleeders).
+- [x] **Design Hardwired Emergency Stop (E-Stop) & NEC 690.12 Rapid Shutdown Interlock** → Completed in [`System_Safety_and_Protection_Architecture.md`](System_Safety_and_Protection_Architecture.md) (latched safety relay cutting `AUX_COIL_24V` + `HRTIM1_FLT3` + roof Solar keep-alive while keeping `AUX_LOGIC_24V` live).
 
 ---
 
@@ -34,13 +22,11 @@ Use this list to pick the next high-impact item, verify exit criteria, and check
 
 Located in [hardware/STM32_control_card/](../hardware/STM32_control_card/):
 
-- [ ] **Fix `24 V` Input Protection vs. Buck Voltage Ceiling**
-  - **Issue:** Proposed `SMBJ33A` TVS clamps up to `53.3 V`, exceeding the `LM2675M-5.0/NOPB` `40 V` max input rating ([STM32_Control_Card_Mechanical_and_Power.md](../hardware/STM32_control_card/STM32_Control_Card_Mechanical_and_Power.md)).
-  - **Done when:** Host `24 V` supply range/transients are bounded and either a higher-voltage buck (e.g., `60 V+` rated) or lower-clamp/active surge stopper is selected, verified, and updated in the BOM and schematic.
+- [x] **Fix `24 V` Input Protection vs. Buck Voltage Ceiling (BOM/Selection Resolved 2026-11-22)**
+  - **Resolution:** Swapped `40 V` `LM2675` + `SMBJ33A` (`53.3 V` clamp) to stocked DigiKey **`LM2576HVT-5.0/NOPB`** (`60 V` op / `63 V` abs max, TO-220-5) + **`SMBJ30A`** (`48.4 V` max clamp, `11.6 V` margin) + **`Bourns SRR1280-331K`** (`330 µH`, `1.4 A` sat) + `63 V` `EEU-FC1J101` / `1000 µF` `EEU-FC1E102`. Capture in EasyEDA power sheet and verify on prototype bench.
 
-- [ ] **Finalize Isolated CAN Supply (`UCC33421DHAR`) & Full Isolation Barrier**
-  - **Issue:** `MEJ1S0505SC` is on hold (requires `20 mA` min load vs. `ISO1042` `2.8–4.1 mA` recessive current). Schematic moved to `UCC33421`, but stock/pricing, `0805` vs. `0402` high-frequency decoupling substitution, and system working-voltage / creepage / clearance qualification remain open.
-  - **Done when:** Regulated isolated DC/DC part + passives are verified in stock, BOM updated, and creepage/clearance rules set for `PCB1.epcb2`.
+- [x] **Finalize Stocked Regulated Isolated CAN Supply (BOM/Selection Resolved 2026-11-22)**
+  - **Resolution:** Both `UCC33421DHAR` and `UCC12050DVER` were non-stock/out-of-stock on DigiKey. Switched baseline in [STM32_Control_Card_BOM.md](../hardware/STM32_control_card/STM32_Control_Card_BOM.md) to stocked **`Analog Devices ADuM6020-5BRIZ`** (`5 kVrms` reinforced, `8.3 mm` creepage, easy-to-hand-solder `1.27 mm` `16-SOIC` wide body, regulated `5.0 V ±5%` down to `0 mA` no-load). Update `CAN Tranciever.esch2` footprint & `≥ 8 mm` PCB moat keep-outs before routing.
 
 - [ ] **Complete Remaining EasyEDA Pro Schematic Sheets & Run ERC**
   - **Already captured:** `Micro + Headers.esch2` (`U1`, `J4`, `J5`), `Decoupling + Filtering.esch2` (37 parts), `CAN Tranciever.esch2` (16 parts).
@@ -54,16 +40,14 @@ Located in [hardware/STM32_control_card/](../hardware/STM32_control_card/):
 
 ## P2 — Control Dynamics, Synchronization & Mechanical Integration
 
-- [ ] **Define `96 VDC` Bus Voltage-Droop Curves & Load-Dump Overvoltage Protection**
-  - **Issue:** No quantitative droop table defines how Batteries, Solar MPPT curtailment, Generator, and Grid share the `96 VDC` bus in `DEGRADED_AUTONOMOUS` mode, or how a sudden BMS charge-FET cutoff during high Solar harvest is absorbed without tripping `> 108 V`.
-  - **Done when:** Exact droop voltage bands and load-dump mitigation (fast local Solar curtailment bandwidth, bulk bus capacitance sizing, and/or dump-load crowbar) are specified.
+- [x] **Define `96 VDC` & `400 VDC` Bulk Capacitance, Soft-Start Pre-Charge, Voltage-Droop Curves & Load-Dump Protection** → Completed in [`Bus_Capacitance_Droop_and_Transient_Spec.md`](Bus_Capacitance_Droop_and_Transient_Spec.md) (`60 mF`/rail `±200 V` bank; `330 mF` `96 V` zero-dump-load bank; Battery DAB soft-start cold pre-charge; deterministic `91.2–100.8 V` autonomous droop map).
 
 - [ ] **Define Inverter `60 Hz` Hardware Sync Architecture & Time-Master Failover**
   - **Issue:** `HRTIM1_SCOUT` outputs a 16-cycle pulse (~`94 ns`), not the `10 µs` zero-cross pulse assumed in older docs ([Inverter_Module_IO_Requirements.md](../hardware/STM32_control_card/Inverter_Module_IO_Requirements.md)), and Time-Master failover if the master inverter trips offline is undefined.
   - **Done when:** Timer/sync pulse format, isolation, PLL phase-alignment tolerance, and glitch-free master election/handoff are specified.
 
 - [ ] **Define Enclosure, Thermal Cooling & Stacked-Busbar Mechanical Standard**
-  - **Issue:** High-power modules (e.g., 10 kVA Boost rejecting ~`500 W` at 95% efficiency) need defined airflow paths, heatsink clearance, M4 busbar interconnect geometry, and safe maintenance lockout/tagout.
+  - **Issue:** High-power modules (e.g., `10 kW` 2-Phase FB-LLC Boost rejecting `~340 W` at `~96.5%` efficiency) need defined airflow paths, heatsink clearance, M4 busbar interconnect geometry, reinforced isolation clearances (`≥ 8 mm`), and safe maintenance lockout/tagout.
   - **Done when:** A mechanical/thermal baseline document defines rack/cabinet envelope, airflow budget, and busbar/connector clearances.
 
 ---
@@ -81,9 +65,9 @@ Located in [hardware/STM32_control_card/](../hardware/STM32_control_card/):
   - **Issue:** `20 ms` parallel Inverter sharing semantics, feedback freshness (vs. `200 ms` telemetry), and timeout behavior are undefined; Inverter slow telemetry (`I²t` thermal accumulator %, peak surge, neutral imbalance, sync error) is also a useful future addition.
   - **Done when:** Parallel Inverter sharing contract and bus-load impact are validated and documented.
 
-- [ ] **Promote Draft `TELEM_BOOST_SLOW` (`0x310 + Instance`) & Consider System Energy Counters**
-  - **Issue:** `TELEM_BOOST_SLOW` (active phase count 1–5, phase-current spread, shedding/rotation status, inductor thermal status) is drafted in [CAN_Messages_Definitions.md](../protocol/CAN_Messages_Definitions.md); energy integration (`kWh` / `Ah` counters + SD persistence) is not yet specified.
-  - **Done when:** `TELEM_BOOST_SLOW` fields are reviewed/approved and mirrored into Coordinator, PC simulator, and Nucleo Boost simulator; energy logging strategy is decided.
+- [ ] **Wire `TELEM_BOOST_SLOW` (`0x310 + Instance`) into Coordinator & Define System Energy Counters**
+  - **Issue:** `TELEM_BOOST_SLOW` (`0x310+`) is updated for the 2-phase FB-LLC topology (switching frequency, `±200 V` split-rail imbalance, Phase 1/2 tank RMS currents, magnetics temp, LLC diagnostic flags) and mirrored in the PC and Nucleo Boost 0 simulators; Coordinator RX decoding and system energy integration (`kWh` / `Ah` counters + SD persistence) remain open.
+  - **Done when:** Coordinator decodes `0x300` + `0x310` and energy logging strategy is decided.
 
 - [ ] **Define Command Retry, Duplicate-Command & Protocol Version Compatibility Rules**
   - **Done when:** In-flight command timeouts, idempotency/sequence rules, and malformed-command ACK policy are finalized across all node profiles.
@@ -108,6 +92,15 @@ Located in [hardware/STM32_control_card/](../hardware/STM32_control_card/):
   - **Done when:** NVS/flash encryption for stored Wi-Fi credentials, operator authentication/audit trail for remote breaker resets, and SD-absent fallback behavior are defined ([Software_Design_Constraints.md](Software_Design_Constraints.md)).
 
 ---
+
+## Completed Items (2026-11-22)
+
+- [x] Switched Boost Converter baseline from non-isolated 5-phase boost (`380 VDC`) to **10 kW 2-phase interleaved Full-Bridge LLC** (`96 VDC` → earth-referenced **`400 VDC` / `±200 VDC` split-rail** with center-tapped self-balancing SiC diode rectifiers) and authored [`Boost_Converter_Architecture.md`](../hardware/boost_converter/Boost_Converter_Architecture.md).
+- [x] Authored the full-system **Galvanic Isolation, Grounding & Neutral-Bonding Map** in [`System_Architecture.md`](../architecture/System_Architecture.md) (`HV_MID` single-point bonded to `PE` / AC Neutral; `LV_BUS-` referenced to `PE` via DC GFDI; zero ground/neutral short loops).
+- [x] Authored [`Battery_Isolation_Topology_Study.md`](../hardware/Battery_Isolation_Topology_Study.md) and migrated Battery Module baseline to a **2.5 kW Isolated Bidirectional Dual Active Bridge (DAB)** to eliminate the DALY BMS `B-` ground-fault bypass hazard.
+- [x] Updated Inverter baseline to half-bridge topologies (`1-leg 120 VAC` / `2-leg 240 VAC` referenced to `HV_MID = N = PE`) and Utility-Tie baseline to a two-stage isolated `PFC + LLC/PSFB` topology.
+- [x] Verified 100% I/O compatibility of the draft `STM32G474QET6` control card (`J1`/`J2`) across all updated topologies (`8` HRTIM outputs for Boost FB-LLC and Battery DAB; zero card PCB changes required).
+- [x] Updated `TELEM_BOOST_FAST` (`0x300+`), `TELEM_BOOST_SLOW` (`0x310+`), `Fault_Codes.md`, PC simulator, unit tests, and Nucleo Boost 0 simulator for the 2-phase FB-LLC `400 VDC` split-rail architecture.
 
 ## Completed Items (2026-11-20)
 

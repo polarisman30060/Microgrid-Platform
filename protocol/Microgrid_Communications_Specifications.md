@@ -24,7 +24,7 @@ CAN identifiers are allocated by **message priority and function** so critical h
 - `0x1A0` – `0x1AF`: **High Priority** — Solar gateway child-control routing (payload TBD)
 - `0x1B0` – `0x1BF`: **High Priority** — Solar gateway routed replies (payload TBD)
 - `0x200` – `0x2FF`: **Medium-High Priority** — Battery telemetry (`100 ms` fast / `1 s` slow)
-- `0x300` – `0x3FF`: **Medium Priority** — Boost telemetry (`50 ms`)
+- `0x300` – `0x3FF`: **Medium Priority** — Boost telemetry (`50 ms` fast / `1 s` slow)
 - `0x400` – `0x4FF`: **Medium Priority** — Solar-local telemetry, Generator/Grid telemetry, Solar gateway summaries
 - `0x500` – `0x5FF`: **Medium-Low Priority** — Inverter telemetry (`200 ms`)
 - `0x600` – `0x6FF`: **Low Priority** — Node heartbeats (type-specific periods)
@@ -41,10 +41,10 @@ Active parallel Boost and Inverter modules require `20 ms` supervisory current-s
 CAN is supervisory communication only. Fast cycle-by-cycle current loops and hardware fault protection shall remain local to each power module and shall not depend on CAN timing or availability. Bulk bus capacitance does not replace local control or protection.
 
 - Upon Coordinator timeout, active nodes transition to `DEGRADED_AUTONOMOUS` mode using their last valid operating limits:
-  - **Battery Nodes:** Hold `96.0 VDC` Energy Bus regulation within autonomous V-I droop bounds; keep `30V 50kHz` Auxiliary Lifeline active.
+  - **Battery Nodes:** Hold `96.0 VDC` Energy Bus regulation within autonomous V-I droop bounds (`91.2–100.8 V`); keep `AUX_LOGIC_24V` Auxiliary Lifeline active.
   - **Solar MPPT Nodes:** Continue autonomous MPPT harvesting with local `96 VDC` overvoltage curtailment (`<= 100.8 VDC`).
-  - **Multiple Boost Converter Systems:** A designated **Primary Boost Node** maintains `380.0 VDC` Inverter Bus regulation via local droop control, while **Secondary Boost Nodes** enter `Standby` so parallel converters do not fight over bus voltage without Coordinator current-balancing tokens.
-  - **Inverter Nodes:** Maintain `60 Hz` AC output while `380 VDC` remains within valid bounds (`360 V`–`400 V`) and local `I²t` / short-circuit protection remains active.
+  - **Multiple Boost Converter Systems:** A designated **Primary Boost Node** maintains `400.0 VDC` (`±200 VDC` split-rail) Inverter Bus regulation via local droop control, while **Secondary Boost Nodes** enter `Standby` so parallel converters do not fight over bus voltage without Coordinator current-balancing tokens.
+  - **Inverter Nodes:** Maintain `60 Hz` AC output while `400 VDC` (`±200 VDC`) remains within valid bounds (`380 V`–`415 V`) and local `I²t` / short-circuit protection remains active.
   - **Generator & Grid Interface Nodes:** Safely ramp down power import/generation and isolate (`Generator` completes engine cooldown before shutdown; `Grid Interface` opens AC and DC contactors).
 
 The working Boost 0 profile uses its registry-assigned IDs; see [`CAN_Messages_Definitions.md`](./CAN_Messages_Definitions.md), Section 3.6.1. Solar gateway payloads and physical gateway implementation remain open. The CAN channel remains supervisory; local control and protection must work without it.

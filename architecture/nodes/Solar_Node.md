@@ -22,13 +22,13 @@ The Solar Node provides a standardized renewable energy harvesting interface bet
 
 - Photovoltaic Array Input
 - 96VDC Energy Bus
-- 30V 50kHz Common Auxiliary Power Bus
+- Split `24VDC` Common Auxiliary Power Bus (`AUX_LOGIC_24V` control + `AUX_COIL_24V` NEC 690.12 Rapid Shutdown keep-alive)
 - Isolated Solar gateway-local CAN segment
 
 ## Inputs
 
 - DC power from the connected photovoltaic panel or string
-- Control power from the 30V 50kHz Common Auxiliary Power Bus
+- Control power from `AUX_LOGIC_24V` and NEC 690.12 rapid-shutdown keep-alive from `AUX_COIL_24V`
 - Enable, curtailment, and configuration commands routed by the local gateway
 
 ## Outputs

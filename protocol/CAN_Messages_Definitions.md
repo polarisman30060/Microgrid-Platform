@@ -27,7 +27,7 @@ Status: Working CAN ID registry and provisional timing schedule approved for imp
 | `0x1B0` – `0x1BF` | High | **Solar gateway routed replies** | Gateway -> Coordinator | Reply/ACK payload is not yet defined |
 | `0x1C0` – `0x1FF` | High | **Reserved control IDs** | Reserved | |
 | `0x200` – `0x2FF` | Medium-High | **Battery / BMS telemetry** | Battery Nodes -> Broadcast | Fast `100 ms`, slow `1 s` |
-| `0x300` – `0x3FF` | Medium | **Boost telemetry** | Boost Nodes -> Broadcast | `50 ms` |
+| `0x300` – `0x3FF` | Medium | **Boost telemetry** | Boost Nodes -> Broadcast | Fast `50 ms`, slow `1 s` |
 | `0x400` – `0x4FF` | Medium | **Source and Solar gateway telemetry** | Nodes -> Broadcast | Solar child IDs are local to isolated segments |
 | `0x500` – `0x5FF` | Medium-Low | **Inverter telemetry** | Inverter Nodes -> Broadcast | `200 ms` |
 | `0x600` – `0x6FF` | Low | **Node Heartbeats** | Nodes -> Broadcast | Type-specific period; see Section 4 |
@@ -64,8 +64,8 @@ On the main bus, the identifier equals the sending node's `GlobalNodeID` (`0x001
 * **Byte 1:** `Fault_State` (`0x05` = Recoverable Fault, `0x06` = Latched Lockout)
 * **Bytes 2–3 (`uint16`):** `Fault_Bitmask`
   * Bit 0: Hardware Overcurrent (`HRTIM_FLT`)
-  * Bit 1: Bus Overvoltage (`96V` or `380V`)
-  * Bit 2: Bus Undervoltage (`96V` or `380V`)
+  * Bit 1: Bus Overvoltage (`96V` or `400V`)
+  * Bit 2: Bus Undervoltage (`96V` or `400V`)
   * Bit 3: Over-Temperature Shutdown
   * Bit 4: Contactor Weld / Mirror Feedback Mismatch
   * Bit 5: BMS Critical Cell Alarm / Reverse Current
@@ -84,7 +84,7 @@ Master keep-alive and global supervisory state broadcast.
 * **Byte 2:** `System_Flags`
   * Bit 0: Fleet Allow Charge (`1`=Allowed)
   * Bit 1: Fleet Allow Discharge (`1`=Allowed; mutually exclusive with Bit 0 at fleet level)
-  * Bit 2: Allow HV 380V Boost
+  * Bit 2: Allow HV 400V Boost
   * Bit 3: Allow AC Inverter Outputs
   * Bit 4: Clear Recoverable Faults Pulse
 * **Byte 3:** `Active_Node_Count`
@@ -106,7 +106,7 @@ The provisional command schedule is event/on-change based for ordinary nodes. Ac
   * `0x05` = Reset Software Breaker / Latched Fault
   * `0x06` = Generator Crank / Start Sequence
   * `0x07` = Generator Cooldown & Stop Sequence
-* **Bytes 1–2 (`uint16`):** `Target_Voltage_Setpoint` (`0.05 V/bit`; e.g., `1920` = `96.00 V`, `7600` = `380.00 V`)
+* **Bytes 1–2 (`uint16`):** `Target_Voltage_Setpoint` (`0.05 V/bit`; e.g., `1920` = `96.00 V`, `8000` = `400.00 V`)
 * **Bytes 3–4 (`int16`):** `Current_Limit_Or_Balance_Token` (`0.1 A/bit`; proposed for parallel Boost/Inverter current-sharing targets at `20 ms`; for Battery/Grid/Solar, carries max charge/import/curtailment current). Inverter target meaning and payload semantics remain to be validated.
 * **Bytes 5–6 (`int16`):** `Max_Discharge_Or_Secondary_Limit` (`0.1 A/bit`; max discharge current for Battery, or reactive/secondary trim)
 * **Byte 7:** `CRC8` (SAE J1850 polynomial `0x1D` over Bytes `0–6`)
@@ -126,7 +126,7 @@ The provisional command schedule is event/on-change based for ordinary nodes. Ac
   * Bit 4: BMS Cell Balancing Active
   * Bit 5: BMS Charge Allowed
   * Bit 6: BMS Discharge Allowed
-  * Bit 7: `30V 50kHz` Auxiliary Lifeline Healthy
+  * Bit 7: `24 VDC` Auxiliary Lifeline (`AUX_LOGIC_24V`) Healthy
 
 ---
 
@@ -142,41 +142,43 @@ The provisional command schedule is event/on-change based for ordinary nodes. Ac
 
 ### 3.6 `0x300 + Instance` — `TELEM_BOOST_FAST` (DLC: 8, `50 ms` Periodic)
 
-* **Bytes 0–1 (`uint16`):** `LV_Input_Voltage` (`0.05 V/bit`)
-* **Bytes 2–3 (`uint16`):** `HV_Output_Voltage` (`0.1 V/bit`; `3800` = `380.0 V`)
+Each Boost Node is a **10 kW 2-phase (`2 × 5 kW`) interleaved Full-Bridge LLC (FB-LLC) resonant converter** stepping `96 VDC` up to an isolated, earth-referenced **`400 VDC` (`±200 VDC` split-rail)** inverter bus. Bytes `0–6` and Byte `7` Bits `5–7` preserve layout compatibility while Byte `7` Bits `0–4` report 2-phase FB-LLC status:
+
+* **Bytes 0–1 (`uint16`):** `LV_Input_Voltage` (`0.05 V/bit`; e.g., `1920` = `96.00 V`)
+* **Bytes 2–3 (`uint16`):** `HV_Output_Voltage` (`0.1 V/bit`; total `HV+` to `HV-`, e.g., `4000` = `400.0 V`)
 * **Bytes 4–5 (`int16`):** `Total_Input_Current` (`0.1 A/bit`)
-* **Byte 6 (`int8`):** `Max_Stage_Temp_C` (`1 °C/bit`, signed)
-* **Byte 7:** `Boost_Phase_And_Role_Status`
-  * Bits `0–4`: Active Interleaved Phases (`Stages 1–5`)
+* **Byte 6 (`int8`):** `Max_Stage_Temp_C` (`1 °C/bit`, signed; max of primary MOSFET heatsink / magnetics / rectifier)
+* **Byte 7:** `Boost_LLC_Status`
+  * Bits `0–1`: Active LLC Phase Mask (`Bit 0` = Phase 1 Active, `Bit 1` = Phase 2 Active; `0x00`=Off, `0x01`=Ph1 Only, `0x02`=Ph2 Only, `0x03`=Both `90°` Interleaved)
+  * Bits `2–3`: LLC Operating Mode (`0`=Standby/Off, `1`=SoftStart_PSM, `2`=Normal_PFM, `3`=Burst_LightLoad)
+  * Bit 4: Split-Bus Rail Balance OK (`1`=Balanced within `±10 V`, `0`=Imbalance Warning)
   * Bit 5: Main Contactor `Q_ISOL` Closed
   * Bit 6: Role (`1`=Designated Primary Boost, `0`=Secondary Boost)
   * Bit 7: Autonomous Droop Mode Active
 
-### 3.6.0 `0x310 + Instance` — `TELEM_BOOST_SLOW` (DLC: 8, `1 s` Periodic — Draft Candidate)
+### 3.6.0 `0x310 + Instance` — `TELEM_BOOST_SLOW` (DLC: 8, `1 s` Periodic)
 
-Each Boost Node is a **5-phase interleaved boost converter** with **active phase shedding** and **active per-phase current balancing**. While `TELEM_BOOST_FAST` (`0x300 + Instance`, `50 ms`) carries real-time bus metrics and a 5-bit active-phase mask, slower operational diagnostics—especially **how many phases are currently active** (`0–5`), per-phase current balance spread, shedding/rotation status, and inductor thermal health—do not require `50 ms` bus bandwidth.
+Mirrors Battery's `0x200`/`0x210` fast/slow split (`0x310–0x314` for Boost instances `0–4`), carrying slower FB-LLC resonant-tank, split-rail balance, and thermal diagnostics:
 
-This draft mirrors Battery's `0x200`/`0x210` fast/slow split (`0x310–0x314` for Boost instances `0–4`). It is **not yet active** in the reopened Boost 0 working profile (Section 3.6.1) or current simulators until reviewed and promoted.
-
-* **Byte 0 (`uint8`):** `Active_Phase_Count` (`0`–`5`; number of currently active switching phases)
-* **Byte 1:** `Phase_Shed_And_Thermal_Flags`
-  * Bits `0–4`: Active Interleaved Phase Mask (`Stages 1–5`)
-  * Bits `5–6`: Shedding Mode (`0`=Auto_Load_Shed, `1`=Forced_All_5, `2`=Derated_Phase_Fault, `3`=Standby)
-  * Bit 7: Inductor Overtemperature Snap-Disc Alarm (`1`=Tripped/Warning)
-* **Bytes 2–3 (`uint16`):** `Phase_Current_Spread` (`0.1 A/bit`; `max_active_phase_I - min_active_phase_I`, highlights per-phase balancing health)
-* **Bytes 4–5 (`uint16`):** `Max_Active_Phase_Current` (`0.1 A/bit`; highest single-phase inductor current)
-* **Byte 6 (`int8`):** `Secondary_Or_Inductor_Temp_C` (`1 °C/bit`, signed; `-128` = sensor not fitted / unavailable)
-* **Byte 7:** `Balance_And_Rotation_Status`
-  * Bits `0–2`: Current Lead / Wear-Rotation Phase Index (`0`–`4`)
-  * Bit 3: Active Per-Phase Current Balancing Converged (`1`=Balanced)
+* **Bytes 0–1 (`uint16`):** `Switching_Freq_10Hz` (`10 Hz/bit`; e.g., `4500` = `45.00 kHz` nominal resonant frequency `f_r`, `0` when standby/off)
+* **Bytes 2–3 (`int16`):** `Split_Rail_Imbalance_0p1V` (`0.1 V/bit`, signed: `V_HV_POS - |V_HV_NEG|`; e.g., `+15` = `+1.5 V`)
+* **Byte 4 (`uint8`):** `Phase1_Tank_Current_RMS` (`0.5 A/bit`; `0`–`127.5 A` primary resonant tank RMS current)
+* **Byte 5 (`uint8`):** `Phase2_Tank_Current_RMS` (`0.5 A/bit`; `0`–`127.5 A` primary resonant tank RMS current)
+* **Byte 6 (`int8`):** `Magnetics_Or_Rectifier_Temp_C` (`1 °C/bit`, signed; `-128` = sensor not fitted / unavailable)
+* **Byte 7:** `LLC_Diagnostic_Flags`
+  * Bits `0–1`: Active Phase Count (`0`, `1`, or `2`)
+  * Bit 2: Active PSM Phase-Balance Trim Engaged (`1`=Active)
+  * Bit 3: Magnetics Overtemperature Snap-Disc Alarm (`1`=Tripped/Warning)
   * Bit 4: Thermal Derating Active
-  * Bits `5–7`: Reserved (`0`)
+  * Bit 5: Capacitive-Mode / ZVS Margin Warning (`f_sw` near lower clamp)
+  * Bit 6: Phase Current Imbalance Warning (`|I_ph1 - I_ph2|` exceeded threshold)
+  * Bit 7: Reserved (`0`)
 
 ### 3.6.1 Reopened Boost Instance 0 Communications Profile
 
-Boost instance 0 was previously treated as frozen; that decision has been reopened to apply the system-wide registry. This section records its current working IDs and existing draft behavior; it is not a frozen wire contract and does not define or validate power-stage control, protection, precharge physics, or production commissioning.
+Boost instance 0 was previously treated as frozen; that decision has been reopened to apply the system-wide registry and the 2-phase FB-LLC telemetry update (`400 VDC` split-rail). This section records its current working IDs and draft behavior; it is not a frozen wire contract and does not define or validate power-stage control, protection, precharge physics, or production commissioning.
 
-Profile revision: `1` (working registry revision; revision is documentation-only and is not transmitted on CAN).
+Profile revision: `2` (working registry + 2-phase FB-LLC telemetry; documentation-only, not transmitted on CAN).
 
 Boost instance 0 has registry-assigned `GlobalNodeID = 0x06` and uses ordinary microgrid frames:
 
@@ -185,6 +187,7 @@ Boost instance 0 has registry-assigned `GlobalNodeID = 0x06` and uses ordinary m
 | `COORD_HEARTBEAT` | `0x100` | Coordinator -> bus | Every `100 ms` |
 | `CMD_NODE_CONTROL` | `0x126` | Coordinator -> Boost 0 | `20 ms` only during active parallel balancing |
 | `TELEM_BOOST_FAST` | `0x300` | Boost 0 -> bus | Every `50 ms` |
+| `TELEM_BOOST_SLOW` | `0x310` | Boost 0 -> bus | Every `1 s` |
 | `NODE_HEARTBEAT` | `0x606` | Boost 0 -> bus | Every `100 ms` |
 | `NODE_IDENTITY` | `0x706` | Boost 0 -> bus | At startup/on request |
 | `CMD_ACK` | `0x765` | Boost 0 -> bus | Event-driven for non-no-op control actions |
@@ -331,7 +334,7 @@ The identifier remains reserved for Coordinator provisioning. The intended Solar
 | Node/message | Cadence |
 | --- | --- |
 | Coordinator heartbeat | `100 ms` |
-| Boost heartbeat / telemetry | `100 ms` / `50 ms`; `20 ms` commands only when active parallel balancing requires them |
+| Boost heartbeat / fast + slow telemetry | `100 ms` / `50 ms` + `1 s`; `20 ms` commands only when active parallel balancing requires them |
 | Battery heartbeat / fast + slow telemetry | `250 ms` / `100 ms` + `1 s` |
 | Inverter heartbeat / telemetry | `250 ms` / `200 ms`; `20 ms` current-sharing updates during active parallel operation; otherwise commands on change or at most every `250 ms` when justified |
 | Generator and Grid heartbeat / telemetry | `1 s` / `500 ms`; important state/fault events immediate |

@@ -2,33 +2,33 @@
 
 ## Purpose
 
-The Grid Interface Node provides a controlled, power-factor-corrected interface between the external AC utility grid and the 96VDC Energy Bus, enabling grid-assisted battery charging and supplemental energy import.
+The Grid Interface Node provides a **galvanically isolated**, power-factor-corrected interface between the external AC utility grid and the negative-grounded `96VDC Energy Bus`, enabling grid-assisted battery charging and supplemental energy import without creating a ground/neutral loop between Utility Neutral (`PE`) and `LV_BUS-` (`PE`).
 
 ## Responsibilities
 
 - Synchronize with utility AC line voltage and frequency
-- Convert utility AC power onto the 96VDC Energy Bus with active Power Factor Correction (PFC)
+- Convert utility AC power onto the `96VDC Energy Bus` via active Power Factor Correction (PFC) followed by a galvanically isolated DC-DC conversion stage
 - Regulate imported power within limits commanded by the Coordinator
 - Monitor utility grid voltage, frequency, and line quality
-- Physically isolate from both the AC utility grid and the 96VDC Energy Bus upon faults or grid disturbances
+- Physically isolate from both the AC utility grid and the `96VDC Energy Bus` upon faults or grid disturbances
 
 ## Not Responsible For
 
 - Determining grid import schedules or battery fleet charging priorities
 - Supplying standalone AC loads during a utility grid outage (owned by Inverter Nodes)
-- Regulating the 380VDC Inverter Bus
+- Regulating the `400VDC` Inverter Bus
 
 ## Interfaces
 
 - External Utility AC Grid (`120VAC` / `240VAC`)
 - 96VDC Energy Bus
-- 30V 50kHz Common Auxiliary Power Bus
+- Split `24VDC` Common Auxiliary Power Bus (`AUX_LOGIC_24V` / `AUX_COIL_24V`)
 - Microgrid CAN Network
 
 ## Inputs
 
 - AC electrical power from the utility grid
-- Control power from the 30V 50kHz Common Auxiliary Power Bus
+- Control power from `AUX_LOGIC_24V` and safety-interlocked coil power from `AUX_COIL_24V`
 - Enable and import power limit commands from the Coordinator
 
 ## Outputs

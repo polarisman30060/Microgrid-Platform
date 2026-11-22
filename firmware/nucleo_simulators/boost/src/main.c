@@ -11,7 +11,8 @@
 
 #define CAN_ID_COORD_HEARTBEAT 0x100U
 #define CAN_ID_BOOST_COMMAND 0x126U
-#define CAN_ID_BOOST_TELEMETRY 0x300U
+#define CAN_ID_BOOST_TELEMETRY_FAST 0x300U
+#define CAN_ID_BOOST_TELEMETRY_SLOW 0x310U
 #define CAN_ID_NODE_HEARTBEAT 0x606U
 #define CAN_ID_NODE_IDENTITY 0x706U
 #define CAN_ID_COMMAND_ACK 0x765U
@@ -20,7 +21,8 @@
 #define BOOST_INSTANCE 0x00U
 
 #define COORDINATOR_TIMEOUT_MS 500U
-#define TELEMETRY_PERIOD_MS 50U
+#define TELEMETRY_FAST_PERIOD_MS 50U
+#define TELEMETRY_SLOW_PERIOD_MS 1000U
 #define NODE_HEARTBEAT_PERIOD_MS 100U
 #define BUS_OFF_RECOVERY_DELAY_MS 100U
 #define RX_QUEUE_LENGTH 8U
@@ -30,10 +32,18 @@
 
 #define SIMULATED_INPUT_VOLTAGE_0P05V 1920U
 #define SIMULATED_STAGE_TEMPERATURE_C 38
+#define SIMULATED_MAGNETICS_TEMPERATURE_C 36
 #define SIMULATED_RUNNING_INPUT_CURRENT_0P1A 150
+#define SIMULATED_RUNNING_FREQ_10HZ 4500U
+#define SIMULATED_RUNNING_TANK_RMS_0P5A 50U
 #define SIMULATED_AUX_SUPPLY_MV 30000U
-#define SIMULATED_FIRMWARE_BUILD_ID 0x0001U
-#define DEFAULT_TARGET_VOLTAGE_0P05V 7600U
+#define SIMULATED_FIRMWARE_BUILD_ID 0x0002U
+#define DEFAULT_TARGET_VOLTAGE_0P05V 8000U
+
+#define BOOST_LLC_PHASE_MASK_OFF 0x00U
+#define BOOST_LLC_PHASE_MASK_BOTH 0x03U
+#define BOOST_LLC_MODE_STANDBY 0x00U
+#define BOOST_LLC_MODE_NORMAL_PFM 0x02U
 
 typedef enum {
     NODE_STATE_OFF = 0,
@@ -65,13 +75,15 @@ static uint32_t s_last_reported_rx_errors;
 static uint32_t s_last_reported_crc_errors;
 static uint32_t s_last_tx_error_log_ms;
 static uint32_t s_last_coordinator_heartbeat_ms;
-static uint32_t s_next_telemetry_ms;
+static uint32_t s_next_telemetry_fast_ms;
+static uint32_t s_next_telemetry_slow_ms;
 static uint32_t s_next_node_heartbeat_ms;
 static uint32_t s_bus_recovery_deadline_ms;
 static bool s_coordinator_timed_out;
 static bool s_bus_recovery_pending;
 static bool s_contactor_closed;
-static uint8_t s_active_phases;
+static uint8_t s_active_phase_mask;
+static uint8_t s_llc_operating_mode;
 static int16_t s_balance_token_deciamps;
 static int16_t s_secondary_limit_deciamps;
 static uint16_t s_target_voltage_0p05v = DEFAULT_TARGET_VOLTAGE_0P05V;
@@ -202,7 +214,7 @@ static void Send_Node_Heartbeat(void)
     Send_Can_Frame(CAN_ID_NODE_HEARTBEAT, data);
 }
 
-static void Send_Boost_Telemetry(void)
+static void Send_Boost_Telemetry_Fast(void)
 {
     uint8_t data[8] = {0};
     uint16_t simulated_output_voltage_0p1v = 0U;
@@ -216,13 +228,13 @@ static void Send_Boost_Telemetry(void)
         simulated_input_current_0p1a = SIMULATED_RUNNING_INPUT_CURRENT_0P1A;
     }
 
-    if (s_active_phases > 0U) {
-        status |= (uint8_t)(s_active_phases & 0x1FU);
-    }
+    status |= (uint8_t)(s_active_phase_mask & 0x03U);
+    status |= (uint8_t)((s_llc_operating_mode & 0x03U) << 2);
+    status |= (uint8_t)(1U << 4); /* Split-rail balance OK */
     if (s_contactor_closed) {
         status |= (uint8_t)(1U << 5);
     }
-    status |= (uint8_t)(1U << 6);
+    status |= (uint8_t)(1U << 6); /* Primary Boost role */
     if (s_coordinator_timed_out) {
         status |= (uint8_t)(1U << 7);
     }
@@ -232,7 +244,36 @@ static void Send_Boost_Telemetry(void)
     Write_I16_LE(&data[4], simulated_input_current_0p1a);
     data[6] = (uint8_t)(int8_t)SIMULATED_STAGE_TEMPERATURE_C;
     data[7] = status;
-    Send_Can_Frame(CAN_ID_BOOST_TELEMETRY, data);
+    Send_Can_Frame(CAN_ID_BOOST_TELEMETRY_FAST, data);
+}
+
+static void Send_Boost_Telemetry_Slow(void)
+{
+    uint8_t data[8] = {0};
+    uint16_t switching_freq_10hz = 0U;
+    uint8_t ph1_tank_rms_0p5a = 0U;
+    uint8_t ph2_tank_rms_0p5a = 0U;
+    uint8_t active_phase_count = 0U;
+
+    if ((s_active_phase_mask & 0x01U) != 0U) {
+        ++active_phase_count;
+        ph1_tank_rms_0p5a = SIMULATED_RUNNING_TANK_RMS_0P5A;
+    }
+    if ((s_active_phase_mask & 0x02U) != 0U) {
+        ++active_phase_count;
+        ph2_tank_rms_0p5a = SIMULATED_RUNNING_TANK_RMS_0P5A;
+    }
+    if (active_phase_count > 0U) {
+        switching_freq_10hz = SIMULATED_RUNNING_FREQ_10HZ;
+    }
+
+    Write_U16_LE(&data[0], switching_freq_10hz);
+    Write_I16_LE(&data[2], 0); /* 0.0 V split-rail imbalance */
+    data[4] = ph1_tank_rms_0p5a;
+    data[5] = ph2_tank_rms_0p5a;
+    data[6] = (uint8_t)(int8_t)SIMULATED_MAGNETICS_TEMPERATURE_C;
+    data[7] = (uint8_t)(active_phase_count & 0x03U);
+    Send_Can_Frame(CAN_ID_BOOST_TELEMETRY_SLOW, data);
 }
 
 static void Send_Command_Ack(uint8_t action, uint8_t status)
@@ -281,7 +322,8 @@ static void Handle_Control_Command(const uint8_t data[8])
         } else if (!s_contactor_closed) {
             ack_status = 0x03U;
         } else {
-            s_active_phases = 5U;
+            s_active_phase_mask = BOOST_LLC_PHASE_MASK_BOTH;
+            s_llc_operating_mode = BOOST_LLC_MODE_NORMAL_PFM;
             s_node_state = NODE_STATE_RUNNING;
         }
         break;
@@ -290,7 +332,8 @@ static void Handle_Control_Command(const uint8_t data[8])
         if (s_node_state == NODE_STATE_FAULT || s_node_state == NODE_STATE_LOCKOUT) {
             ack_status = 0x02U;
         } else {
-            s_active_phases = 0U;
+            s_active_phase_mask = BOOST_LLC_PHASE_MASK_OFF;
+            s_llc_operating_mode = BOOST_LLC_MODE_STANDBY;
             s_contactor_closed = false;
             s_node_state = NODE_STATE_READY;
         }
@@ -298,7 +341,8 @@ static void Handle_Control_Command(const uint8_t data[8])
 
     case 0x05U:
         s_node_state = NODE_STATE_READY;
-        s_active_phases = 0U;
+        s_active_phase_mask = BOOST_LLC_PHASE_MASK_OFF;
+        s_llc_operating_mode = BOOST_LLC_MODE_STANDBY;
         s_contactor_closed = false;
         break;
 
@@ -460,11 +504,12 @@ int main(void)
 
     uint32_t now = HAL_GetTick();
     s_last_coordinator_heartbeat_ms = now;
-    s_next_telemetry_ms = now;
+    s_next_telemetry_fast_ms = now;
+    s_next_telemetry_slow_ms = now;
     s_next_node_heartbeat_ms = now;
     Send_Node_Identity();
 
-    Console_Print("\r\nMicrogrid Boost 0 CAN simulator ready.\r\n");
+    Console_Print("\r\nMicrogrid Boost 0 (2-Phase FB-LLC) CAN simulator ready.\r\n");
     Console_Print("Classical CAN 500 kbit/s; no power-stage outputs are configured.\r\n");
     Console_Print("Use an isolated CAN transceiver and an isolated communications bench.\r\n");
 
@@ -479,9 +524,13 @@ int main(void)
         Service_Bus_Off_Recovery(now);
         Report_Queue_Counters();
 
-        if (Time_Reached(now, s_next_telemetry_ms)) {
-            Send_Boost_Telemetry();
-            s_next_telemetry_ms = now + TELEMETRY_PERIOD_MS;
+        if (Time_Reached(now, s_next_telemetry_fast_ms)) {
+            Send_Boost_Telemetry_Fast();
+            s_next_telemetry_fast_ms = now + TELEMETRY_FAST_PERIOD_MS;
+        }
+        if (Time_Reached(now, s_next_telemetry_slow_ms)) {
+            Send_Boost_Telemetry_Slow();
+            s_next_telemetry_slow_ms = now + TELEMETRY_SLOW_PERIOD_MS;
         }
         if (Time_Reached(now, s_next_node_heartbeat_ms)) {
             Send_Node_Heartbeat();

@@ -11,7 +11,7 @@ The PC program models node behavior and microgrid energy flows; it does not swit
 ## Project topology to represent
 
 - **96 VDC energy bus:** Shared connection for battery, solar, generator, and grid-interface nodes.
-- **380 VDC inverter bus:** Supplied from the 96 VDC bus through one or more boost nodes; supplies the AC inverter nodes.
+- **400 VDC (`±200 VDC` split-rail) inverter bus:** Galvanically isolated from the `96 VDC` bus through one or more `10 kW` 2-phase FB-LLC boost nodes; supplies the earth-referenced half-bridge AC inverter nodes.
 - **AC loads and outputs:** Represent 120 V single-phase and 120/240 V split-phase inverter outputs and their connected loads.
 - **Auxiliary/control lifeline:** Represent availability and node dependency for startup and communication scenarios. Detailed 50 kHz switching behavior is not required in the initial model.
 - **Coordinator and module nodes:** Model supervisory startup/dispatch separately from each node's local operating state and protection limits.

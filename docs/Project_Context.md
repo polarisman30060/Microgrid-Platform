@@ -1,6 +1,6 @@
 # Project Context
 Version: 1.0
-Last Updated: 2026-11-19
+Last Updated: 2026-11-22
 
 # Project Overview
 
@@ -21,41 +21,43 @@ The system is built around two primary DC power buses and one un-interruptible a
 
 ## 96VDC Energy Bus
 
-The 96VDC bus (`91.2V–100.8V`, `±5%` normal regulation; `84.0V–108.0V` fault bounds) is the primary system energy bus.
+The `96VDC` bus (`91.2V–100.8V`, `±5%` normal regulation; `84.0V–108.0V` fault bounds) is the primary system energy bus. Its negative rail (`LV_BUS-`) is single-point referenced to Earth (`PE`) through a DC GFDI device so the bus does not float.
 
 All energy sources and storage systems connect to this bus.
 
 Examples:
 
-- Battery Nodes
+- Battery Nodes (galvanically isolated bidirectional Dual Active Bridge)
 - Solar MPPT Nodes
 - Generator Nodes
-- Utility-Tie PFC Nodes
+- Utility-Tie PFC Nodes (two-stage galvanically isolated PFC + DC-DC)
 - Future Energy Sources and Storage Technologies
 
 System Philosophy:
 
 96VDC Bus = Energy Management Bus
 
-## 380VDC Inverter Bus
+## 400VDC (±200VDC Split-Rail) Inverter Bus
 
-The 380VDC bus exists solely as an inverter supply bus.
+The galvanically isolated `400VDC` (`+200VDC / 0V (HV_MID = N = PE) / -200VDC`; `380V–415V` normal, `360V–435V` trip bounds) split-capacitor bus exists solely as an inverter supply bus.
 
-The 380VDC bus is not intended for energy storage or direct energy source connection.
+The `400VDC` bus is not intended for energy storage or direct energy source connection.
 
-The 380VDC bus is supplied exclusively through Boost Converter Nodes.
-
-System Philosophy:
-
-380VDC Bus = Power Conversion Bus
-
-## 30V 50kHz Common Auxiliary Power Bus
-
-The 30V 50kHz bus provides un-interruptible control and Black Start power from Battery Nodes to all module controllers, contactors, and galvanic CAN isolators.
+The `400VDC` bus is supplied exclusively through **10 kW 2-phase interleaved Full-Bridge LLC (FB-LLC)** Boost Converter Nodes, whose HF transformers isolate the bus so `HV_MID` can be earth-bonded as residential AC Neutral (`N`).
 
 System Philosophy:
 
-30V 50kHz Bus = Un-interruptible Control & Black Start Lifeline
+400VDC (±200V Split) Bus = Isolated Earth-Referenced Power Conversion Bus
+
+## Split Diode-OR'd `24 VDC` Common Auxiliary Power Bus
+
+The regulated, isolated `24.0 VDC` (`22.8–25.2 V`) auxiliary bus provides un-interruptible control and Black Start power from Battery Nodes (via Ideal-Diode OR'd isolated `48 V → 24 V` supplies with per-tap fuses/eFuses), partitioned into:
+- **`AUX_LOGIC_24V`:** Always-on control lifeline feeding the Coordinator, STM32 control cards, and isolated CAN (never cut by E-Stop or local faults).
+- **`AUX_COIL_24V`:** Routed through the hardwired latched E-Stop / `96 V` DC GFDI Safety Relay to feed all contactor coils, `NC` `400 V` discharge relays, module `HRTIM1_FLT3` (`ESTOP_OK`), and NEC 690.12 rooftop Solar Rapid Shutdown keep-alive.
+
+System Philosophy:
+
+AUX_LOGIC_24V = Un-interruptible Control & Black Start Lifeline | AUX_COIL_24V = Hardwired Safety-Interlocked Power Enable
 
 # Coordinator & Safety Philosophy
 

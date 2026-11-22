@@ -1,50 +1,66 @@
 # STM32 Control Card Power, Isolation, Connectors, and Mechanical Design
 
-Status: Draft hardware baseline (v0.1). Component values, isolation creepage/clearance, thermal dissipation, and mechanical clearances must be verified in schematic capture and PCB layout before fabrication.
-
-**Layout hold:** This is a concept, not a validated circuit or assembly procedure. In particular, the proposed TVS does not establish protection for the buck's 40 V input; the proposed CAN converter can overvolt the transceiver at light load and the isolation system is not qualified. Connector mating, clock circuits, and debugger pinout also require independent checks. Do not order or energize a board from this draft.
+Status: Draft hardware baseline (v0.2, 2026-11-22). Both P1 power-input surge and isolated CAN supply component holds are resolved in the BOM (`LM2576HVT-5.0/NOPB` + `SMBJ30A` + `SRR1280-331K` and `ADuM6020-5BRIZ`). Final schematic capture (EasyEDA Pro), ERC/DRC, isolation creepage/clearance layout verification, and bench thermal/transient testing remain required before PCB fabrication.
 
 ## 1. Power Tree and Input Protection
 
-The host power board supplies regulated, isolated **24 VDC** (`+24V_IN` / `GND_CTRL`) across `J1` pins 1–4. The control card regulates `5.0 V` and `3.3 V` locally and creates a galvanically isolated `5.0 V` domain for the CAN bus transceiver.
+The host power board supplies regulated, isolated **24.0 VDC** (`AUX_LOGIC_24V` / `GND_CTRL`) across `J1` pins 1–4. The control card regulates `5.0 V` and `3.3 V` locally and creates a galvanically isolated, regulated `5.0 V` domain for the CAN bus transceiver.
+
+**Design Target (Resolved 2026-11-22):** At the card input, nominal voltage is `24.0 VDC` (`21.6–28.0 V` normal diode-OR'd operating window, `30.0 V` upper steady ceiling, positive surge clamped `≤ 48.4 V` by `SMBJ30A`). Pairing **`SMBJ30A`** (`V_RWM = 30.0 V`, `V_C max = 48.4 V`) with the **`60 V`-rated `LM2576HVT-5.0/NOPB`** (`63 V` abs max), `60 V` `B360A-13-F` diodes, and `63 V` `EEU-FC1J101` input capacitor establishes a **`≥ 11.6 V` guaranteed voltage margin** across worst-case TVS clamping.
 
 ```text
-J1 (+24V_IN)
+J1 (+24V_IN / AUX_LOGIC_24V)
   |
-  +--> [MF-R050] 0.5 A PTC Fuse
+  +--> [MF-R050] 0.5 A PTC Fuse (60 V)
   |
-  +--> [B360A-13-F] Reverse-Polarity Schottky + [SMBJ33A] TVS to GND_CTRL
+  +--> [B360A-13-F] Reverse-Polarity Schottky (60 V, 3 A) + [SMBJ30A] TVS (V_C <= 48.4 V) to GND_CTRL
   |
   v
-[LM2675M-5.0/NOPB] 40 V, 1 A Buck (8-SOIC, 260 kHz) --> +5V_CTRL
+[LM2576HVT-5.0/NOPB] 60 V, 3 A Buck (TO-220-5, 52 kHz, 330 uH SRR1280-331K) --> +5V_CTRL
   |
   +---> [TLV76133DCYR] 1 A Low-Noise LDO (SOT-223) ---> +3V3_DIG (MCU, LCD HAT, ISO1042 VCC1)
   |        |
-  |        +---> Ferrite Bead / 10 Ohm + 10 nF + 1 uF -> +3V3_ANA (VDDA, VREF+)
+  |        +---> Ferrite Bead (BLM21AG601SN1D) + 10 nF + 1 uF -> +3V3_ANA (VDDA, VREF+)
   |
-  +---> [isolated DC/DC: candidate under review] -> +5V_CAN_ISO / GND_CAN_ISO
-                                                            |
-                                                            v
-                                                    [ISO1042DWV] CAN Bus Side (VCC2)
+  +---> [ADuM6020-5BRIZ] 5 kVrms Regulated Isolated DC/DC (16-SOICW) -> +5V_CAN_ISO / GND_CAN_ISO
+                                                                              |
+                                                                              v
+                                                                      [ISO1042DWVR] CAN Bus Side (VCC2)
 ```
 
 ### Design Rationale & Hand-Solderability
 
-- **Input Protection (`MF-R050` + `B360A-13-F` + `SMBJ33A`):** Proposed fuse, reverse-polarity diode and TVS require verification. The TVS's listed `53.3 V` maximum clamp exceeds the buck's `40 V` operating ceiling; this combination does not demonstrate adequate transient protection. Define the host input range and transients, then design and validate suitable protection.
-- **24 V → 5.0 V Buck (`LM2675M-5.0/NOPB`):** Selected in **8-SOIC (no exposed bottom thermal pad)** specifically for easy hand soldering, fixed `5.0 V` output (no feedback divider needed), and `6.5 V–40 V` input range. Per [TI_LM2675.pdf](../../docs/datasheet/TI_LM2675.pdf) (Table 7-2 & 7-3), pair with `100 µH / 1.7 A` shielded inductor (`SRR1260-101M`), `B360A-13-F` catch diode, `22 µF / 50 V` input cap (`EEU-FR1H220`) + `100 nF`, `10 nF` bootstrap cap (`CC0805KRX7R9BB103`), and `100 µF / 25 V` low-ESR output cap (`EEU-FR1E101`).
+- **Input Protection (`MF-R050` + `B360A-13-F` + `SMBJ30A`):** `SMBJ30A` stays non-conducting across the full `21.6–30.0 V` operating range (`V_BR min = 33.3 V`) and clamps surges to `≤ 48.4 V`, leaving `11.6 V` of margin below the `60 V` `LM2576HV` operating ceiling, `60 V` `B360A-13-F` reverse-polarity/catch diodes, and `63 V` `EEU-FC1J101` input electrolytic.
+- **24 V → 5.0 V Buck (`LM2576HVT-5.0/NOPB`):** Selected in **through-hole `TO-220-5`** (stocked on DigiKey, effortless hand-soldering, fixed `5.0 V` output with zero feedback resistors, `60 V` max operating input / `63 V` abs max). Pair with stocked **`Bourns SRR1280-331K`** (`330 µH`, `1.1 A` RMS / `1.4 A` sat, exceeding `1.13 A` peak at `1 A` load), `B360A-13-F` catch diode, `100 µF / 63 V` low-ESR input cap (`EEU-FC1J101`) + `100 nF`, and `1,000 µF / 25 V` low-ESR output cap (`EEU-FC1E102`).
 - **5.0 V → 3.3 V LDO (`TLV76133DCYR`):** Selected in **SOT-223** (large leaded pads, easy to hand solder), `1 A` rating, `60 dB` PSRR at `1 kHz`, and **stable with standard `1 µF` ceramic capacitors** ([TI_TLV761.pdf](../../docs/datasheet/TI_TLV761.pdf)). Filter `3V3_DIG` into `VDDA`/`VREF+` through Murata `BLM21AG601SN1D` (`600 Ω @ 100 MHz`, `0805`). Estimated `3.3 V` load is ~120–150 mA (`~0.25 W` LDO dissipation at `5.0 V → 3.3 V`, well within SOT-223 thermal limits).
-- **Load Budget:** The earlier estimates for `+5V_CTRL` and `3V3_DIG` are provisional and must be recalculated for the selected isolated converter, display, startup, fault conditions and temperature. They do not establish current or thermal margin.
+- **Load Budget:** Recalculate and bench-verify thermal rise under worst-case `1 A` load, startup, and ambient cabinet temperature during board bring-up.
+
+### Working Supply Design Targets
+
+Design the `5V_CTRL` buck for **1 A continuous** across `21.6–30.0 V` input and survive `48.4 V` TVS-clamped transients.
+
+| 5 V load allocation | Allowance |
+| --- | ---: |
+| 3.3 V LDO input, including MCU, display, logic-side CAN and host reference loads | 400 mA |
+| Isolated CAN converter (`ADuM6020-5BRIZ`) input (~`180–220 mA` at full `ISO1042` dominant load) | 250 mA |
+| Reserve for uncertainty and future card loads | 350 mA |
+| **Total buck design load** | **1 A** |
+
+Within the 400 mA 3.3 V allowance, reserve up to **100 mA for host circuitry** on `3V3_REF`; the other 300 mA is for the control card and display. At 400 mA, the LDO dissipates `(5.0 - 3.3) × 0.4 = 0.68 W` at nominal voltages; provide generous SOT-223 copper pour on `L1`/`L3` for heatsinking.
+
+**Buck Inductor Verification (`Bourns SRR1280-331K`):** Per TI's `LM2576HV` `5 V` selection chart (`H330` region for `1 A` and `40–48 V` max input), `330 µH` at `52 kHz` yields `ΔI_pp ≈ 0.255 A` and `I_pk ≈ 1.13 A` at `1 A` continuous load. Stocked DigiKey **`Bourns SRR1280-331K`** (`330 µH ±10%`, shielded `12.5×12.5×8 mm` SMD) is rated **`1.1 A` continuous / `1.4 A` saturation** (`24%` headroom above `1.13 A` peak). Verify temperature rise and startup/short-circuit behavior on the prototype bench.
 
 ---
 
 ## 2. Isolated CAN Bus Interface
 
-- **Transceiver:** **TI `ISO1042DWV`** (`8-SOIC` wide-body, `1.27 mm` pin pitch—very easy to hand solder). Rated for **`5.0 kVrms`** withstand isolation, `1060 Vrms` working voltage, `±70 V` bus fault protection, and `8 mm` minimum creepage/clearance ([TI_ISO1042.pdf](../../docs/datasheet/TI_ISO1042.pdf)).
-- **Isolated Supply:** **Murata `MEJ1S0505SC`** (`5 V` → `5 V`, `1 W`, `200 mA`, `7-SIP` through-hole package) is a candidate. Its `5.2 kVDC` test rating alone does not establish a kVrms rating, reinforced insulation, working-voltage suitability, or compliance with the communications specification. Verify its datasheet and the complete barrier against the system requirements.
-- **Supply compatibility — unresolved:** The [MEJ1 datasheet](../../docs/datasheet/Murata_MEJ1S0505SC.pdf), page 5, requires at least 10% of rated load (20 mA for this model) to meet its specifications and says output voltage may rise to typically twice nominal below 5% load. The [ISO1042 datasheet](../../docs/datasheet/TI_ISO1042.pdf), page 9, specifies CAN-side recessive current of 2.8 mA typical / 4.1 mA maximum under its stated test conditions, and VCC2's recommended operating range is 4.5–5.5 V. With only the transceiver loading it, the converter cannot be assumed to provide a safe output at idle. Do not connect this converter directly to VCC2 as an approved design; select and validate a suitable regulated supply or a complete regulation/protection circuit over startup, load and input conditions.
-- **Converter isolation details:** The MEJ1 datasheet, pages 2–3, lists a 5.2 kVDC production withstand test for one second, UL 62368-1 recognition at 150 Vrms reinforced or 300 Vrms basic working voltage, and 2 mm creepage/clearance. Those distinct figures are not interchangeable. The system specification's greater-than-2.5 kVrms wording also needs a defined test method and duration, working voltage, insulation class and applicable standard before compatibility can be determined.
-- **Replacement candidate:** TI `UCC12050DVER` is a regulated isolated converter in a 16-pin surface-mount DVE package. The [datasheet](../../docs/datasheet/TI_UCC12050.pdf) specifies 5 kVrms for one minute under UL 1577 and 1.2 kVrms maximum working voltage; these are component ratings, not board-level approval. In 5.0 V mode, 4.7–5.3 V is specified at a 55 mA test load; the 0–100 mA load-regulation figure is typical, not a guaranteed full-range limit. ISO1042 specifies up to 73.4 mA dominant current at its stated test conditions. Verify the converter's output range and recommended operating area over the actual load, input and temperature, including idle, startup and transient behavior, and recalculate input power, before connecting or approving it. Its 10 µF input/output capacitors and other required connections must be designed from the datasheet. Availability, supplier SKU and price remain unverified.
-- **Preferred candidate for further review:** TI `UCC33421DHAR` provides a selectable regulated 5.0 V isolated output. Its [datasheet](../../docs/datasheet/TI_UCC33421.pdf), page 9, specifies 4.85–5.15 V at 5.0 V input and 0–300 mA output, and ±4% output accuracy over 4.5–5.5 V input under the specified conditions. The 5.5 V output setting is unsuitable for ISO1042's 4.5–5.5 V operating range. The 16-pin DHA package has 0.65 mm lead pitch, more demanding to hand-solder than the original SIP. Its 5 kVrms/60 s component withstand test is not a working voltage or system approval; verify the system requirements, operating area, input supply, startup/overshoot, output capacitance and complete barrier before wiring or release. TI's order page showed out of stock on 2026-11-20; DigiKey SKU, price and availability are unverified.
+- **Transceiver:** **TI `ISO1042DWVR`** (or `ISO1042DWV` / `ISO1042BDWVR`, `8-SOIC` wide-body, `1.27 mm` pin pitch—very easy to hand solder). Rated for **`5.0 kVrms`** withstand isolation, `1060 Vrms` working voltage, `±70 V` bus fault protection, and `8 mm` minimum creepage/clearance ([TI_ISO1042.pdf](../../docs/datasheet/TI_ISO1042.pdf)).
+- **Regulated Isolated Supply (Resolved 2026-11-22):** **Analog Devices `ADuM6020-5BRIZ`** (`505-ADUM6020-5BRIZ-ND`, **in stock on DigiKey**, wide-body `16-SOIC` `1.27 mm` pitch — effortless to hand-solder compared to `0.65 mm` DHA packages!).
+  - Rated **`5.0 kVrms` for 1 minute (UL 1577)** with **`8.3 mm` minimum creepage and clearance** matching `ISO1042DWVR`.
+  - **Fully regulated `5.0 V ±5%` (`4.75–5.25 V`) down to `0 mA` no-load**, completely resolving the `MEJ1S0505SC` light-load overvoltage failure mode at `ISO1042`'s `2.8–4.1 mA` recessive idle current.
+  - Rated **`500 mW` (`100 mA @ 5.0 V`)** output, providing ample margin over `ISO1042`'s `73.4 mA` max dominant current.
+  - Bypass both `VDDP` and `VISO` immediately at the pins with **`10 µF` (`CC0805KKX7R7BB106`) + `100 nF` (`CC0805KRX7R9BB104`)** ceramic capacitors per the ADI datasheet, and stitch a clean `≥ 8.0 mm` copper moat across all 4 layers.
+  - *(Note: TI `UCC33421DHAR` and `UCC12050DVER` were checked on 2026-11-22 and found non-stock / out-of-stock on DigiKey; `ADuM5020-5BRWZ` is a stocked `3 kVrms` lower-cost fallback if `5 kVrms` is not required.)*
 - **CAN Protection & Split Termination:**
   - **ESD / Surge:** `onsemi NUP2105LT1G` (`SOT-23`) placed directly at the CAN connector between `CANH`/`CANL` and `GND_CAN_ISO`.
   - **Selectable End Termination:** Two `60.4 Ω` (`1%`, `0805`) resistors in series across `CANH`–`CANL` with a `4.7 nF / 100 V` midpoint capacitor to `GND_CAN_ISO`, enabled **only** when a 2-pin `2.54 mm` jumper shunt (`J_TERM`, `PRPC002SAAN-RC`) is installed at physical bus ends.
@@ -103,7 +119,7 @@ Because the card will be largely hand-soldered and plugged onto multiple host po
 ## 5. Hand-Soldering Assembly Order Recommendation
 
 1. Solder `STM32G474QET6` (`LQFP128`, `0.4 mm` pitch) first using tack-and-drag with plenty of no-clean gel flux and solder wick. Inspect all 128 pins under magnification for bridges before installing tall parts.
-2. Solder SMD power, CAN, and clock ICs (`LM2675M-5.0`, `TLV76133`, `ISO1042DWV`, `B360A-13-F`, `SMBJ33A`, `NUP2105LT1G`, `SRR1260-101M`, `ECS-240-8-30B-CKM`, `ECS-.327-6-17X-TR`, `BLM21AG601SN1D`) and `0805` passives/LEDs.
-3. Solder through-hole power & interface parts (`MF-R050`, `EEU-FR1H220`, `EEU-FR1E101`, `MEJ1S0505SC`, `1729131` CAN terminal, `B3F-1000` reset button, `J5` SWD header, `J_TERM` / `BOOT0` jumpers).
+2. Solder SMD power, CAN, and clock ICs (`TLV76133DCYR`, `ISO1042DWVR`, `ADuM6020-5BRIZ`, `B360A-13-F`, `SMBJ30A`, `NUP2105LT1G`, `SRR1280-331K`, `ECS-240-8-30B-CKM`, `ECS-.327-6-17X-TR`, `BLM21AG601SN1D`) and `0805` passives/LEDs.
+3. Solder through-hole power & interface parts (`MF-R050`, `LM2576HVT-5.0/NOPB`, `EEU-FC1J101`, `EEU-FC1E102`, `1729131` CAN terminal, `B3F-1000` reset button, `J5` SWD header, `J_TERM` / `BOOT0` jumpers).
 4. **Power-On Smoke Test (Before mounting LCD HAT or plugging onto Host):** Apply bench `24 VDC` (current-limited to `100 mA`) to `J1` pins 1/3, verify `+5V_CTRL = 5.0 V`, `+3V3_DIG = 3.3 V`, `+5V_CAN_ISO = 5.0 V`, and flash a blink/CAN test over `SWD`.
 5. Solder bottom-side host headers `J1`/`J2` (using a mating host socket or jig to keep pins perpendicular) and top-side `J4` LCD header, then bolt the Waveshare HAT onto the M2.5 standoffs.

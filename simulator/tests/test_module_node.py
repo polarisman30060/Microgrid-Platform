@@ -44,6 +44,11 @@ class ModuleNodeTests(unittest.TestCase):
                         frame for frame in frames if frame.identifier == profile.telemetry_id
                     )
                     self.assertEqual(len(telemetry.data), 8)
+                if profile.slow_telemetry_id is not None:
+                    slow = next(
+                        frame for frame in frames if frame.identifier == profile.slow_telemetry_id
+                    )
+                    self.assertEqual(len(slow.data), 8)
 
     def test_gateway_emits_only_the_defined_identity_and_heartbeat_frames(self):
         profile = MODULE_PROFILES["solar_gateway"]
@@ -57,7 +62,7 @@ class ModuleNodeTests(unittest.TestCase):
 
     def test_initial_telemetry_wire_examples_cover_each_module(self):
         expected = {
-            "boost": (0x300, "80 07 D8 0E 00 00 26 40"),
+            "boost": (0x300, "80 07 A0 0F 00 00 26 50"),
             "solar": (0x400, "D0 02 64 00 00 00 23 00"),
             "generator": (0x410, "80 07 00 00 00 00 26 00"),
             "grid_interface": (0x420, "B0 04 00 00 64 23 03 62"),
@@ -73,6 +78,25 @@ class ModuleNodeTests(unittest.TestCase):
                     if item.identifier == identifier
                 )
                 self.assertEqual(frame.data, bytes.fromhex(data_hex))
+
+    def test_boost_fbllc_enable_emits_fast_and_slow_telemetry(self):
+        node = ModuleNode(BOOST_PROFILE)
+        node.start(0)
+
+        initial_slow = next(item for item in node.frames_due(0) if item.identifier == 0x310)
+        self.assertEqual(initial_slow.data, bytes.fromhex("00 00 00 00 00 00 24 00"))
+
+        node.handle_frame(command(BOOST_PROFILE, 1), 10)
+        responses, _ = node.handle_frame(command(BOOST_PROFILE, 2), 20)
+        self.assertEqual(responses[0].data[1], ACK_ACCEPTED)
+
+        frames = node.frames_due(1000)
+        fast = next(item for item in frames if item.identifier == 0x300)
+        slow = next(item for item in frames if item.identifier == 0x310)
+        # Fast byte 7: both phases (0x03) | Normal PFM (2<<2=0x08) | balance OK (0x10) | Q_ISOL (0x20) | Primary (0x40) = 0x7B
+        self.assertEqual(fast.data[7], 0x7B)
+        # Slow: 45.00 kHz (4500 = 0x1194), 0.0 V imbalance, 25.0 A (50=0x32) Ph1 & Ph2, 36 C (0x24), active_count=2 (0x02)
+        self.assertEqual(slow.data, bytes.fromhex("94 11 00 00 32 32 24 02"))
 
     def test_noop_has_no_ack_and_supported_command_uses_profile_ack(self):
         node = ModuleNode(SOLAR_PROFILE)

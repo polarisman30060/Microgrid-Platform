@@ -45,9 +45,9 @@
   - **Firmware Mandate:** At system boot, the Coordinator must configure **`CH422G EXIO5` (`CAN_SEL`) = HIGH (`1`)** to connect `GPIO19/20` to the CAN interface.
 - **External Galvanic CAN Isolator & Bus-Side Power:**
   - An **external galvanic CAN isolator** sits between the Waveshare board's CAN interface and the main microgrid CANbus trunk to preserve strict ground isolation across all modules.
-  - **Bus-Side Transceiver Power:** The isolated bus-side rail of the CAN isolator is powered directly from a dedicated secondary winding/tap off the **30V 50kHz common auxiliary power source** (rectified and regulated to clean `5.0V` / `3.3V` for the bus-side CAN transceiver), eliminating the need for a separate isolated DC-DC bias module.
+  - **Bus-Side Transceiver Power:** The isolated bus-side rail of the CAN isolator is powered by a dedicated isolated `5.0 V` DC-DC supply derived from the un-interruptible **`AUX_LOGIC_24V`** rail (Split Diode-OR'd `24 VDC` auxiliary bus; see [`../docs/System_Safety_and_Protection_Architecture.md`](../docs/System_Safety_and_Protection_Architecture.md)).
   - **Termination:** `120Ω` termination resistor placed at the trunk end of the isolated CAN bus.
-- **Application Layer Protocol:** The proposed CAN identifiers, payloads, and timing are documented in [`protocol/Microgrid_Communications_Specifications.md`](../protocol/Microgrid_Communications_Specifications.md) and [`protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md). The configured Boost 0 wire profile is frozen only for isolated simulator and compatible-firmware development; the wider contract still has unresolved conflicts. See [`docs/Software_Design_Constraints.md`](../docs/Software_Design_Constraints.md) before implementing other application profiles or production behavior.
+- **Application Layer Protocol:** The working CAN identifiers, payloads, and timing are documented in [`protocol/Microgrid_Communications_Specifications.md`](../protocol/Microgrid_Communications_Specifications.md) and [`protocol/CAN_Messages_Definitions.md`](../protocol/CAN_Messages_Definitions.md). Boost 0 has been reopened under the working registry and 2-phase FB-LLC profile; Solar gateway payloads remain open. See [`docs/Software_Design_Constraints.md`](../docs/Software_Design_Constraints.md) and [`docs/Coordinator_CAN_Implementation.md`](../docs/Coordinator_CAN_Implementation.md) for current implementation scope.
 
 ---
 
@@ -63,5 +63,5 @@
 ### Power Supply & Black-Start Architecture
 - **Board Power Input:** `5.0V DC` (`~450 mA` typical draw at full backlight brightness) supplied via USB-C or regulated `5V` rail, stepped down internally via an **SGM2212-3.3** LDO to `3.3V` logic power.
 - **Backup Cell Support:** Onboard **CS8501** single-cell `3.7V` LiPo charger/boost IC (`PH2.0` header, `580 mA` charge rate, `≤2000 mAh` cell recommended) for graceful shutdown or brownout ride-through.
-- **Common Auxiliary Power Source (`30V 50kHz`):**
-  - Both the Coordinator's main isolated `5.0V DC` (`≥1.5A`) logic/display supply and the isolated bus-side rail of the CAN isolator derive their power from the un-interruptible **30V 50kHz common auxiliary power source**, ensuring the Coordinator and CAN bus remain active during a full system blackout (`Black Start`).
+- **Common Auxiliary Power Source (`AUX_LOGIC_24V`):**
+  - Both the Coordinator's main `5.0 V DC` (`≥ 1.5 A`) logic/display supply (stepped down from `24.0 VDC` via a local `1 A`-fused/eFused buck converter) and the isolated bus-side rail of the CAN isolator derive their power from the un-interruptible **`AUX_LOGIC_24V`** rail of the Split Diode-OR'd `24 VDC` auxiliary bus, ensuring the Coordinator and CAN bus remain active during a full system blackout (`Black Start`) and during Hardware E-Stop events to log and display faults.

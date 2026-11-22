@@ -16,20 +16,20 @@ The Generator Node interfaces a petrol-driven starter-generator prime mover with
 
 - Determining when generator dispatch is economically or energetically required across the microgrid
 - Managing battery state-of-charge targets or fleet charging allocation
-- Regulating the 380VDC Inverter Bus or AC loads
+- Regulating the `400VDC` Inverter Bus or AC loads
 
 ## Interfaces
 
 - Petrol Engine & Starter-Generator Assembly
 - 96VDC Energy Bus
-- 30V 50kHz Common Auxiliary Power Bus
+- Split `24VDC` Common Auxiliary Power Bus (`AUX_LOGIC_24V` / `AUX_COIL_24V`)
 - Microgrid CAN Network
 
 ## Inputs
 
 - Energy from the 96VDC Energy Bus (during engine cranking)
 - Mechanical power from the petrol engine (during generation)
-- Control power from the 30V 50kHz Common Auxiliary Power Bus
+- Control power from `AUX_LOGIC_24V` and safety-interlocked coil/ignition power from `AUX_COIL_24V`
 - Start, stop, and power-output setpoint commands from the Coordinator
 
 ## Outputs

@@ -26,13 +26,13 @@ The Coordinator Node serves as the central supervisory intelligence of the micro
 - Microgrid CAN Network (via galvanic CAN isolator)
 - Display Node / Local HMI & Wi-Fi Web Server (co-hosted on the supervisor platform)
 - Persistent Non-Volatile Storage
-- 30V 50kHz Common Auxiliary Power Bus
+- Split `24VDC` Common Auxiliary Power Bus (`AUX_LOGIC_24V` always-on lifeline)
 
 ## Inputs
 
 - Node heartbeats, serial numbers, telemetry, and fault messages from the Microgrid CAN Network
 - Operator configuration, mode commands, and breaker reset requests from the local HMI or web interface
-- Un-interruptible control power from the 30V 50kHz Common Auxiliary Power Bus
+- Un-interruptible control power from `AUX_LOGIC_24V` (Split `24VDC` Common Auxiliary Power Bus)
 
 ## Outputs
 

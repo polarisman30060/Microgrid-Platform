@@ -12,7 +12,7 @@ To accommodate vastly different solar panel Maximum Power Point (`MPP`) voltages
 1. **Common Control Daughter Card (Universal Across All Variants):**
    - **Microcontroller:** Compact **STM32G474** package variant—such as the **STM32G474CE** (`LQFP-48`) or **STM32G474RE** (`LQFP-64`)—maintaining 100% firmware and `HRTIM` peripheral compatibility with the system-standard **STM32G474QE** (`LQFP-128`) while minimizing PCB footprint.
    - **Standardized Interconnect:** Pin-compatible board-to-board header carrying isolated `HRTIM` PWM gate signals, isolated analog telemetry (`ADC`), hardware fault trips, and power-stage identification/configuration lines.
-   - **Auxiliary Power:** Powered from the **30V 50kHz** common auxiliary power source so the node remains addressable by the Coordinator even after sundown.
+   - **Auxiliary Power & NEC 690.12 Rapid Shutdown:** Control logic powered from `AUX_LOGIC_24V` (via per-tap fuse/eFuse) so the node remains addressable after sundown; `96 V` output stage gated by `AUX_COIL_24V` rapid-shutdown keep-alive so E-Stop immediately drops roof homerun wiring `< 30 VDC`.
    - **Form Factor:** Compact **surface-mount device (SMD)** PCB using commercial off-the-shelf (**COTS**) components.
 
 2. **Swappable Power Converter Cards (Panel-Specific Revisions):**

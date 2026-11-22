@@ -6,7 +6,7 @@ The Display Node provides the human-machine interface (HMI) for the microgrid pl
 
 ## Responsibilities
 
-- Render real-time energy flow across the 96VDC Energy Bus, 380VDC Inverter Bus, and AC outputs
+- Render real-time energy flow across the `96VDC` Energy Bus, `400VDC` (`±200VDC`) Inverter Bus, and AC outputs
 - Display per-module status, Node IDs, serial numbers, battery State of Charge, and active fault alarms
 - Provide operator controls for system commissioning, node classification (`Required`, `Optional`, `Ignored`), and requested provisioning of inaccessible Solar MPPT nodes through their segment gateway; gateway routing/payload behavior remains to be defined
 - Provide operator-initiated software circuit-breaker reset controls for Inverter Nodes
@@ -23,13 +23,13 @@ The Display Node provides the human-machine interface (HMI) for the microgrid pl
 - Coordinator Node (co-hosted on the Waveshare ESP32-S3-Touch-LCD-7 platform or linked via Microgrid CAN Network `0x700–0x7FF`)
 - Local `7-inch` Capacitive Touchscreen LCD
 - Local `2.4 GHz` Wi-Fi Network (HTTP/WebSocket Web Interface)
-- 30V 50kHz Common Auxiliary Power Bus
+- Split `24VDC` Common Auxiliary Power Bus (`AUX_LOGIC_24V`)
 
 ## Inputs
 
 - Aggregated system telemetry, node lists, and fault logs from the Coordinator Node
 - Operator touch gestures and remote web client commands
-- Control power from the 30V 50kHz Common Auxiliary Power Bus
+- Control power from `AUX_LOGIC_24V` (Split `24VDC` Common Auxiliary Power Bus)
 
 ## Outputs
 

@@ -31,29 +31,11 @@
         "name": "Schematic1",
         "board": "d7ee87c5bd9060b4",
         "source": "",
-        "version": "1795213726678",
-        "updateTime": 1795213726678
+        "version": "1795268800214",
+        "updateTime": 1795268800214
       }
     },
     "sheets": {
-      "7e99fdda103d61f1": {
-        "uuid": "7e99fdda103d61f1",
-        "title": "Micro + Headers",
-        "schematic_uuid": "134311d9cfb23643",
-        "zIndex": 1,
-        "source": "",
-        "version": "1795212524976",
-        "updateTime": 1795212524976
-      },
-      "8c4e46f6fe0b703f": {
-        "uuid": "8c4e46f6fe0b703f",
-        "title": "Decoupling + Filtering",
-        "schematic_uuid": "134311d9cfb23643",
-        "zIndex": 2,
-        "source": "",
-        "version": "1795213725736",
-        "updateTime": 1795213725736
-      },
       "090cbf9906c0b93d": {
         "uuid": "090cbf9906c0b93d",
         "title": "CAN Tranciever",
@@ -62,6 +44,33 @@
         "source": "",
         "version": "1795213726678",
         "updateTime": 1795213726678
+      },
+      "8c4e46f6fe0b703f": {
+        "uuid": "8c4e46f6fe0b703f",
+        "title": "Decoupling + Filtering",
+        "schematic_uuid": "134311d9cfb23643",
+        "zIndex": 2,
+        "source": "",
+        "version": "1795267598916",
+        "updateTime": 1795267598916
+      },
+      "7e99fdda103d61f1": {
+        "uuid": "7e99fdda103d61f1",
+        "title": "Micro + Headers",
+        "schematic_uuid": "134311d9cfb23643",
+        "zIndex": 1,
+        "source": "",
+        "version": "1795266865427",
+        "updateTime": 1795266865427
+      },
+      "5f2485363ce3af93": {
+        "uuid": "5f2485363ce3af93",
+        "title": "Power Supplies",
+        "schematic_uuid": "134311d9cfb23643",
+        "zIndex": 4,
+        "source": "",
+        "version": "1795268800214",
+        "updateTime": 1795268800214
       }
     },
     "pcbs": {
@@ -75,13 +84,7 @@
         "updateTime": 1795198534705
       }
     },
-    "panels": {
-      "651486a9bd6bc0d0": {
-        "uuid": "651486a9bd6bc0d0",
-        "title": "Panel1",
-        "zIndex": null
-      }
-    },
+    "panels": {},
     "blockSymbols": {},
     "owner": {
       "uuid": "5eefa1b064334308bf1ec93bd3e8ecfe"

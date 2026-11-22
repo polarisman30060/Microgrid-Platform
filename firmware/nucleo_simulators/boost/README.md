@@ -29,7 +29,7 @@ The project can also be built from a terminal with `pio run` and flashed with `p
 ## Simulator behavior
 
 - Standard 11-bit Classical CAN, 500 kbit/s, 8-byte payloads.
-- Transmits identity (`0x706`) at boot, Boost telemetry (`0x300`) every 50 ms, and node heartbeat (`0x606`) every 100 ms.
+- Transmits identity (`0x706`) at boot, 2-phase FB-LLC fast telemetry (`0x300`, `400 V` nominal split-rail) every 50 ms, slow LLC diagnostic telemetry (`0x310`, `45.00 kHz` / tank RMS / split-rail balance) every 1 s, and node heartbeat (`0x606`) every 100 ms.
 - Receives Coordinator heartbeat (`0x100`) and Boost control (`0x126`). Coordinator timeout is reported after 500 ms.
 - Valid control CRC uses CRC-8/SAE-J1850 over bytes 0-6. Invalid CRC is dropped without an ACK. Supported and unsupported actions follow the reopened Boost profile; state-changing command ACKs use `0x765`, while no-op commands do not produce an ACK.
 - Telemetry values are fixed/simulated, including `30000 mV` for the emulated auxiliary supply. `Power_Stage_Profile_ID` is `0x00` (no physical power stage), and identity capability flags are zero.

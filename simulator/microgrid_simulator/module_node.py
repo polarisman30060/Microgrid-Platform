@@ -207,17 +207,47 @@ BOOST_PROFILE = ModuleProfile(
     serial_number=0x4E554300,
     telemetry_id=0x300,
     telemetry_period_ms=50,
+    slow_telemetry_id=0x310,
+    slow_telemetry_period_ms=1000,
     supported_actions=(0, 1, 2, 3, 5),
     ack_bad_crc=False,
     fields=(
         _field("lv_input_voltage_v", "Low-voltage input", "V", "uint16, 0.05 V/bit", 96.0, minimum=0, maximum=3276.75),
-        _field("hv_output_voltage_v", "High-voltage output", "V", "uint16, 0.1 V/bit", 380.0, minimum=0, maximum=6553.5),
+        _field("hv_output_voltage_v", "High-voltage output (split total)", "V", "uint16, 0.1 V/bit", 400.0, minimum=0, maximum=6553.5),
         _field("total_input_current_a", "Total input current", "A", "int16, 0.1 A/bit", 0.0, minimum=-3276.8, maximum=3276.7),
         _field("max_stage_temperature_c", "Maximum stage temperature", "C", "int8, 1 C/bit", 38, "int", -128, 127),
-        _field("active_phases", "Active phases", "", "byte 7 bits 0-4", 0, "int", 0, 5),
+        _field(
+            "active_llc_phases",
+            "Active LLC phases",
+            "",
+            "byte 7 bits 0-1",
+            "Off",
+            "choice",
+            choices=(("Off", 0), ("Phase 1 Only", 1), ("Phase 2 Only", 2), ("Both (90 deg)", 3)),
+        ),
+        _field(
+            "llc_operating_mode",
+            "LLC operating mode",
+            "",
+            "byte 7 bits 2-3",
+            "Standby/Off",
+            "choice",
+            choices=(("Standby/Off", 0), ("SoftStart PSM", 1), ("Normal PFM", 2), ("Burst LightLoad", 3)),
+        ),
+        _field("split_rail_balance_ok", "Split-rail balance OK", "", "byte 7 bit 4", True, "bool"),
         _field("main_contactor_closed", "Main contactor closed", "", "byte 7 bit 5", False, "bool"),
         _field("primary_role", "Primary role", "", "byte 7 bit 6", True, "bool"),
         _field("autonomous_droop_active", "Autonomous droop active", "", "byte 7 bit 7", False, "bool"),
+        _field("switching_freq_khz", "Switching frequency", "kHz", "slow uint16, 10 Hz/bit", 0.0, minimum=0.0, maximum=655.35),
+        _field("split_rail_imbalance_v", "Split-rail imbalance (HV+ - |HV-|)", "V", "slow int16, 0.1 V/bit", 0.0, minimum=-3276.8, maximum=3276.7),
+        _field("phase1_tank_current_rms_a", "Phase 1 tank current RMS", "A", "slow uint8, 0.5 A/bit", 0.0, minimum=0.0, maximum=127.5),
+        _field("phase2_tank_current_rms_a", "Phase 2 tank current RMS", "A", "slow uint8, 0.5 A/bit", 0.0, minimum=0.0, maximum=127.5),
+        _field("magnetics_temperature_c", "Magnetics/rectifier temperature", "C", "slow int8, 1 C/bit", 36, "int", -128, 127),
+        _field("psm_balance_trim_active", "PSM balance trim active", "", "slow byte 7 bit 2", False, "bool"),
+        _field("magnetics_snap_disc_alarm", "Magnetics snap-disc alarm", "", "slow byte 7 bit 3", False, "bool"),
+        _field("thermal_derating_active", "Thermal derating active", "", "slow byte 7 bit 4", False, "bool"),
+        _field("capacitive_mode_warning", "Capacitive-mode warning", "", "slow byte 7 bit 5", False, "bool"),
+        _field("phase_imbalance_warning", "Phase imbalance warning", "", "slow byte 7 bit 6", False, "bool"),
     ),
 )
 
@@ -531,6 +561,17 @@ class ModuleNode:
         )
         if self.profile.telemetry_id is not None and self.profile.telemetry_period_ms is not None:
             schedule += (("telemetry", self.profile.telemetry_period_ms, self._telemetry_frame),)
+        if (
+            self.profile.slow_telemetry_id is not None
+            and self.profile.slow_telemetry_period_ms is not None
+        ):
+            schedule += (
+                (
+                    "slow_telemetry",
+                    self.profile.slow_telemetry_period_ms,
+                    self._slow_telemetry_frame,
+                ),
+            )
 
         for name, period, builder in schedule:
             if now_ms >= self._next_frame_ms.get(name, now_ms):
@@ -609,7 +650,11 @@ class ModuleNode:
             self._power_stage_enabled = True
             self.local_state = 3
             if self.profile.key == "boost":
-                self.telemetry["active_phases"] = 5
+                self.telemetry["active_llc_phases"] = "Both (90 deg)"
+                self.telemetry["llc_operating_mode"] = "Normal PFM"
+                self.telemetry["switching_freq_khz"] = 45.0
+                self.telemetry["phase1_tank_current_rms_a"] = 25.0
+                self.telemetry["phase2_tank_current_rms_a"] = 25.0
             elif self.profile.key == "solar":
                 self.telemetry["mppt_mode"] = "MPPT Tracking"
             elif self.profile.key == "grid_interface":
@@ -627,7 +672,11 @@ class ModuleNode:
                 self._power_stage_enabled = False
                 self._output_connected = False
                 self.local_state = 2
-                self._set_if_present("active_phases", 0)
+                self._set_if_present("active_llc_phases", "Off")
+                self._set_if_present("llc_operating_mode", "Standby/Off")
+                self._set_if_present("switching_freq_khz", 0.0)
+                self._set_if_present("phase1_tank_current_rms_a", 0.0)
+                self._set_if_present("phase2_tank_current_rms_a", 0.0)
                 self._set_if_present("main_contactor_closed", False)
                 self._set_if_present("output_connected", False)
                 self._set_if_present("ac_input_contactor_closed", False)
@@ -736,7 +785,10 @@ class ModuleNode:
     def _telemetry_frame(self, _now_ms: int) -> CanFrame:
         values = self.telemetry
         if self.profile.key == "boost":
-            status = min(31, int(values["active_phases"]))
+            phase_mask = _choice_code(BOOST_PROFILE, "active_llc_phases", values["active_llc_phases"])
+            llc_mode = _choice_code(BOOST_PROFILE, "llc_operating_mode", values["llc_operating_mode"])
+            status = (phase_mask & 0x03) | ((llc_mode & 0x03) << 2)
+            status |= int(bool(values["split_rail_balance_ok"])) << 4
             status |= int(bool(values["main_contactor_closed"])) << 5
             status |= int(bool(values["primary_role"])) << 6
             status |= int(bool(values["autonomous_droop_active"])) << 7
@@ -795,6 +847,26 @@ class ModuleNode:
             raise RuntimeError(f"No telemetry encoder exists for {self.profile.key}.")
         return CanFrame(self.profile.telemetry_id or 0, data)
 
+    def _slow_telemetry_frame(self, _now_ms: int) -> CanFrame:
+        values = self.telemetry
+        if self.profile.key == "boost":
+            phase_mask = _choice_code(BOOST_PROFILE, "active_llc_phases", values["active_llc_phases"])
+            active_count = bin(phase_mask & 0x03).count("1")
+            flags = active_count & 0x03
+            flags |= int(bool(values["psm_balance_trim_active"])) << 2
+            flags |= int(bool(values["magnetics_snap_disc_alarm"])) << 3
+            flags |= int(bool(values["thermal_derating_active"])) << 4
+            flags |= int(bool(values["capacitive_mode_warning"])) << 5
+            flags |= int(bool(values["phase_imbalance_warning"])) << 6
+            data = _u16(float(values["switching_freq_khz"]) * 100)
+            data += _i16(float(values["split_rail_imbalance_v"]) * 10)
+            data += bytes((_u8(float(values["phase1_tank_current_rms_a"]) * 2),))
+            data += bytes((_u8(float(values["phase2_tank_current_rms_a"]) * 2),))
+            data += _i8(int(values["magnetics_temperature_c"]))
+            data += bytes((flags,))
+            return CanFrame(self.profile.slow_telemetry_id or 0, data)
+        raise RuntimeError(f"No slow telemetry encoder exists for {self.profile.key}.")
+
     def _ack_frame(self, action: int, status: int, now_ms: int) -> CanFrame:
         uptime_ms = max(0, now_ms - self.started_at_ms)
         return encode_node_ack(
@@ -813,6 +885,10 @@ def _choice_code(profile: ModuleProfile, key: str, value: object) -> int:
         if value == label or value == code:
             return code
     raise ValueError(f"Invalid {field.label}: {value!r}")
+
+
+def _u8(value: float | int) -> int:
+    return max(0, min(0xFF, round(value)))
 
 
 def _u16(value: float | int) -> bytes:

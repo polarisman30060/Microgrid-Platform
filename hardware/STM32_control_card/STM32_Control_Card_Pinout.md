@@ -94,7 +94,7 @@ Connector: **`SBH11-PBPC-D20-ST-BK`** (2×20, 2.54 mm keyed shrouded male box he
 | **37** | `CONT_FB3` | 4 | `PE5` | Contactor Feedback 3 | **38** | `HOST_UART4_TX` | 100 | `PC10` | `UART4_TX` (AF5) / `SPI3_SCK` |
 | **39** | `HOST_UART4_RX` | 101 | `PC11` | `UART4_RX` (AF5) / `SPI3_MISO` | **40** | `HOST_SPI3_MOSI` | 102 | `PC12` | `SPI3_MOSI` (AF6) / `UART5_TX` |
 
-*Note on simultaneous ADC sampling:* `AIN_01..16` intentionally include pins across **all five ADCs** (`PA0..PA3` on `ADC1`, `PA4..PA7` on `ADC2`, `PB0` on `ADC3`, `PE14` on `ADC4`, and `PD8/PD9` on `ADC5`) so 5-phase boost currents or 3-phase generator currents can be sampled simultaneously in hardware via HRTIM ADC triggers.
+*Note on simultaneous ADC sampling:* `AIN_01..16` intentionally include pins across **all five ADCs** (`PA0..PA3` on `ADC1`, `PA4..PA7` on `ADC2`, `PB0` on `ADC3`, `PE14` on `ADC4`, and `PD8/PD9` on `ADC5`) so 2-phase FB-LLC split-rail/tank channels, DAB bridge currents, or 3-phase generator currents can be sampled simultaneously in hardware via HRTIM ADC triggers.
 
 ---
 
@@ -136,15 +136,15 @@ Exposes all remaining usable LQFP128 pins so zero MCU pins are stranded:
 
 ## 4. Cross-Module Signal Allocation Summary
 
-| Interface Group | Boost (5-Phase) | Inverter (120 V / 240 V) | Generator | Battery | Utility-Tie |
+| Interface Group | Boost (2-Ph FB-LLC) | Inverter (`120 V` / `240 V` Half-Br) | Generator | Battery (Isol. DAB) | Utility-Tie (PFC + Isol. DC-DC) |
 | --- | --- | --- | --- | --- | --- |
-| **HRTIM PWM (`J2:1..18`)** | `CHA1, CHB1, CHC1, CHD1, CHE1` (5) | `CHA1/2, CHB1/2` (+ `CHC1/2` for 240 V) (4 / 6) | `CHA1/2..CHC1/2` (3-ph) + `CHD1/2, CHE1/2` (buck-boost) + `CHF1` (field) (11) | `CHA1/2, CHB1/2` (4) | `CHA1, CHB1` (2) |
-| **Fault Trip (`J2:19`)** | `FLT1` (5× sensor OC) | `FLT1` (driver faults) | `FLT1` (OC + driver) | `FLT1` (OC + driver) | `FLT1` (OC + driver) |
+| **HRTIM PWM (`J2:1..18`)** | `CHA1/2, CHB1/2` (Ph1) + `CHC1/2, CHD1/2` (Ph2) (**8**) | `CHA1/2` (120 V) / `CHA1/2, CHB1/2` (240 V) (**2 / 4**, `CHC1/2` spare) | `CHA1/2..CHC1/2` (3-ph) + `CHD1/2, CHE1/2` (buck-boost) + `CHF1` (field) (**11**) | `CHA1/2, CHB1/2` (48 V) + `CHC1/2, CHD1/2` (96 V) (**8**) | `CHA1, CHB1` (PFC) + `CHC1/2, CHD1/2` (Isol. DC-DC) (**6**) |
+| **Fault Trip (`J2:19..20`)** | `FLT1` (Tank OC + HV OV + drv) + `FLT3` (Mag snap-disc / E-Stop) | `FLT1` (drv + OC + GFCI) | `FLT1` (OC + driver) | `FLT1` (`I_tank`/port OC + drv) + `FLT3` (Mag snap-disc) | `FLT1` (PFC/Stg2 OC + 400V OV) + `FLT3` (Mag snap-disc) |
 | **Sync (`J2:21..22`)** | Unused | `SCOUT` / `SCIN` (2) | Unused | Unused | Unused |
-| **Gate Enable (`J2:25`)** | Optional (`GATE_EN`) | `GATE_EN` (1) | `GATE_EN` (1) | `GATE_EN` (1) | `GATE_EN` (1) |
-| **Analog (`J1:9..24`)** | 10 (`AIN_01..10`: 5× I_ph, 2× V_bus, 2× I_bus, T_hs) | 5 for 120 V / 7 for 240 V (`AIN_01..07`) | 13 (`AIN_01..13`: V_24, V_96, 3× V_ph, 3× I_ph, I_bb, I_fld, T_hs, T_cool, P_oil) | 6 (`AIN_01..06`: I_L, I_bat, I_96, V_bat, V_96, T_hs) | 7 (`AIN_01..07`: V_ac, I_ac, 2× I_ph, V_96, I_96, T_hs) |
-| **Contactors (`J1:32..37`)** | 2 cmd + TBD fb | 3 cmd + 2 fb (AC, DC, Precharge) | 2 cmd + 2 fb (Precharge, Main) | 2 cmd + 2 fb (Precharge, Main) | 3 cmd + 3 fb (AC, Precharge, Main) |
-| **Fan (`J1:30..31`)** | Optional | `FAN_PWM` + `FAN_TACH` | `FAN_PWM` + `FAN_TACH` | `FAN_PWM` + `FAN_TACH` | `FAN_PWM` + `FAN_TACH` |
+| **Gate Enable (`J2:25`)** | `GATE_EN` (1) | `GATE_EN` (1) | `GATE_EN` (1) | `GATE_EN` (1) | `GATE_EN` (1) |
+| **Analog (`J1:9..24`)** | 9–10 (`V_96`, `V_HV+`, `V_HV-`, `I_96`, `I_400`, `2× I_res`, `T_hs`, `T_mag`, opt `I_mid`) | 6–7 (120 V) / 8–9 (240 V) (`V_HV±`, `V_ac`, `I_ac`, `I_gfci`, `T_hs`) | 13 (`V_24`, `V_96`, `3× V_ph`, `3× I_ph`, `I_bb`, `I_fld`, `T_hs`, `T_cool`, `P_oil`) | 6–7 (`I_tank`, `I_bat`, `I_96`, `V_bat`, `V_96`, `T_hs`, opt `T_mag`) | 9–10 (`V_ac`, `I_ac`, `2× I_pfc`, `V_400`, `V_96`, `I_96`, `I_tank`, `T_hs`, opt `T_mag`) |
+| **Contactors (`J1:32..37`)** | 3 cmd + 3 fb (`Q_PRE`, `Q_ISOL`, active bleed / HV disc) | 3 cmd + 2 fb (AC line, 2-pole DC, Precharge) | 2 cmd + 2 fb (Precharge, Main) | 2 cmd + 2 fb (Precharge, Main) | 3 cmd + 3 fb (AC, Precharge, Main) |
+| **Fan (`J1:30..31`)** | `FAN_PWM` + `FAN_TACH` | `FAN_PWM` + `FAN_TACH` | `FAN_PWM` + `FAN_TACH` | `FAN_PWM` + `FAN_TACH` | `FAN_PWM` + `FAN_TACH` |
 | **BMS / Engine** | — | — | `ENG_PWM1..2`, `ENG_RPM_CAP`, `ENG_IGN_EN`, `ENG_STRT_EN` | `USART2` (`BMS_TX/RX/DE`) | — |
 
 ---

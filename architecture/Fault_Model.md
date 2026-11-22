@@ -14,7 +14,7 @@ This document defines how electrical, thermal, mechanical, communication, and co
 
 - **Local Modules Own Immediate Safety:** Hardware comparators, `HRTIM1` fault inputs, and local module firmware always act first to protect power stages, batteries, and wiring without waiting for Coordinator permission or CAN availability.
 - **Fail-Safe Physical Isolation:** Any unsafe power-stage condition terminates PWM immediately and opens the module's physical isolation contactor(s) (`Q_ISOL`, and AC contactors where fitted).
-- **Preserve the Control Lifeline:** A local module fault shall never shut down the common auxiliary control-power lifeline (`30 V 50 kHz` / auxiliary bus) so the Coordinator and surviving nodes remain online to log and diagnose the event.
+- **Preserve the Control Lifeline:** A local module fault or E-Stop shall never shut down `AUX_LOGIC_24V` (the un-interruptible side of the Split Diode-OR'd `24 VDC` auxiliary bus) so the Coordinator and surviving nodes remain online to log and diagnose the event. (`AUX_COIL_24V` drops immediately on E-Stop/GFDI.)
 - **No Silent Failures or Blind Retries:** Every fault is observable in local state, CAN telemetry/fault reporting, and persistent Coordinator logs. Latched hazardous faults never auto-reclose onto a potential short circuit.
 - **Graceful Degradation Over Total Blackout:** Loss of an `Optional` node or loss of Coordinator communications transitions the system to bounded `DEGRADED` operation rather than tripping healthy critical loads.
 

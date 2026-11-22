@@ -1,0 +1,89 @@
+* ==============================================================================
+* 10 kW (2 x 5 kW) Microgrid Boost Converter — Single 5 kW 45 kHz FB-LLC Phase
+* Hand-Buildable SOT-227 + M4 Copper Busbar + TDK U93/76/30 Baseline
+* Opens directly in LTspice (File -> Open -> Run) or ngspice!
+*
+* Topology:
+*   - Primary Full Bridge: 4x SOT-227 IXFN300N20X3 (96 VDC -> 45.0 kHz tank)
+*   - Tank: Cr1 = 6.00 uF (4 x 1.5 uF screw-lug MKP), Lr1 = 2.08 uH total loop
+*   - Transformer: Single TDK U93/76/30 (N87), Np:Ns1:Ns2 = 6:13:13
+*     Lp=12.50 uH (1.52 mm 2-leg shim), Ls_top=Ls_bot=58.68 uH (K=0.999)
+*   - Secondary: Center-tapped full-bridge 650V SiC Schottky (2x GHXS100B065S-D3)
+*   - Output: Split +/-200 VDC bus (HV_POS / 0=HV_MID=PE / HV_NEG)
+*
+* Test scenarios (edit .param lines below):
+*   1) Nominal Balanced 5 kW:     Vin=96, fsw=45.0k, Rpos=16, Rneg=16
+*   2) Peak Surge 7.5 kW (15kW):  Vin=91.2, fsw=42.3k, Rpos=10.67, Rneg=10.67
+*   3) 100% Asymmetric +200V:     Vin=96, fsw=47.0k, Rpos=16, Rneg=10k
+*   4) High-Line Light Load:      Vin=100.8, fsw=64.0k, Rpos=160, Rneg=160
+* ==============================================================================
+
+.param Vin=96.0
+.param fsw=45.0k
+.param Tsw={1/fsw}
+.param tdead=300n
+.param Rpos=16
+.param Rneg=16
+
+* Primary 96 VDC Energy Bus
+V_BUS96  VIN_96  0  {Vin}
+
+* Complementary Full-Bridge Gate Drives (A = Q1/Q4, B = Q2/Q3)
+V_DRV_A  DRV_A   0  PULSE(0 12 0 25n 25n {0.5*Tsw - tdead} {Tsw})
+V_DRV_B  DRV_B   0  PULSE(0 12 {0.5*Tsw} 25n 25n {0.5*Tsw - tdead} {Tsw})
+
+* Primary Full-Bridge SOT-227 MOSFETs (Ron=5.5mOhm hot, IXFN300N20X3 class)
+S_Q1     VIN_96  SW_A   DRV_A  0  MYSW
+D_Q1     SW_A    VIN_96 BODYD
+C_Q1     VIN_96  SW_A   1.8n
+
+S_Q2     SW_A    0      DRV_B  0  MYSW
+D_Q2     0       SW_A   BODYD
+C_Q2     SW_A    0      1.8n
+
+S_Q3     VIN_96  SW_B   DRV_B  0  MYSW
+D_Q3     SW_B    VIN_96 BODYD
+C_Q3     VIN_96  SW_B   1.8n
+
+S_Q4     SW_B    0      DRV_A  0  MYSW
+D_Q4     0       SW_B   BODYD
+C_Q4     SW_B    0      1.8n
+
+* Series Resonant Tank (4 x 1.5 uF screw-lug MKP + 2.08 uH total loop Lr)
+Cr1      SW_A    CR_N   6.00u  Rser=3m
+Lr1      CR_N    PRI_A  2.08u  Rser=3m
+
+* Main Isolation Transformer T1 (TDK U93/76/30 N87, Np:Ns1:Ns2 = 6:13:13)
+* Ls_top = Ls_bot = 12.50u * (13/6)^2 = 58.68 uH
+Lp1      PRI_A   SW_B   12.50u Rser=2m
+Ls1_top  SEC_A   0      58.68u Rser=20m
+Ls1_bot  0       SEC_B  58.68u Rser=20m
+K_T1     Lp1 Ls1_top Ls1_bot 0.999
+
+* Center-Tapped Full-Bridge 650V SiC Schottky Rectifier (2x SemiQ GHXS100B065S-D3)
+* 0 = HV_MID = AC Neutral = PE
+D1       SEC_A   HV_POS SIC650
+D2       SEC_B   HV_POS SIC650
+D3       HV_NEG  SEC_A  SIC650
+D4       HV_NEG  SEC_B  SIC650
+
+* Split +/-200 VDC Output Capacitor Bank (250 uF for fast sim settling; hardware = 60 mF/rail)
+C_top    HV_POS  0      250u   Rser=10m IC=200
+C_bot    0       HV_NEG 250u   Rser=10m IC=200
+
+* Split-Rail Loads (Rpos=16 & Rneg=16 -> 2.5 kW + 2.5 kW = 5.0 kW per phase)
+R_load_p HV_POS  0      {Rpos}
+R_load_n 0       HV_NEG {Rneg}
+
+.model MYSW   SW(Ron=5.5m Roff=1Meg Vt=6 Vh=0.5)
+.model BODYD  D(Vfwd=0.8 Ron=10m Roff=10Meg)
+.model SIC650 D(Vfwd=1.3 Ron=10m Roff=10Meg)
+
+.tran 0 7m 5m 25n uic
+.meas TRAN V_HV_POS_avg AVG V(HV_POS)
+.meas TRAN V_HV_NEG_avg AVG V(HV_NEG)
+.meas TRAN V_400_total  PARAM V_HV_POS_avg - V_HV_NEG_avg
+.meas TRAN I_Lr_rms     RMS I(Lr1)
+.meas TRAN I_Lr_pk      MAX abs(I(Lr1))
+.meas TRAN V_Cr_pk      MAX abs(V(SW_A,CR_N))
+.end

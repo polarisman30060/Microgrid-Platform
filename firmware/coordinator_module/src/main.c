@@ -399,22 +399,22 @@ static lv_obj_t *create_dashboard(void)
     lv_obj_set_style_text_color(bus_96_label, lv_color_hex(COLOR_BUS), LV_PART_MAIN);
     lv_obj_center(bus_96_label);
 
-    create_card(screen, "96V TO 380V", "-- kW", "No active node telemetry", 475, 174, 150, 82, COLOR_RAIL);
+    create_card(screen, "96V TO 400V", "-- kW", "No active node telemetry", 475, 174, 150, 82, COLOR_RAIL);
     create_card(screen, "STORAGE ARRAY", "-- kW", "Waiting for telemetry", 290, 335, 220, 77, COLOR_BATTERY);
 
-    lv_obj_t *bus_380 = lv_obj_create(screen);
-    lv_obj_set_pos(bus_380, 590, 284);
-    lv_obj_set_size(bus_380, 92, 23);
-    lv_obj_clear_flag(bus_380, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(bus_380, lv_color_hex(COLOR_BACKGROUND), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(bus_380, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(bus_380, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(bus_380, 0, LV_PART_MAIN);
-    lv_obj_t *bus_380_label = lv_label_create(bus_380);
-    lv_label_set_text(bus_380_label, "380VDC BUS");
-    lv_obj_set_style_text_font(bus_380_label, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(bus_380_label, lv_color_hex(COLOR_RAIL), LV_PART_MAIN);
-    lv_obj_center(bus_380_label);
+    lv_obj_t *bus_400 = lv_obj_create(screen);
+    lv_obj_set_pos(bus_400, 590, 284);
+    lv_obj_set_size(bus_400, 92, 23);
+    lv_obj_clear_flag(bus_400, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(bus_400, lv_color_hex(COLOR_BACKGROUND), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(bus_400, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(bus_400, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(bus_400, 0, LV_PART_MAIN);
+    lv_obj_t *bus_400_label = lv_label_create(bus_400);
+    lv_label_set_text(bus_400_label, "400VDC BUS");
+    lv_obj_set_style_text_font(bus_400_label, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(bus_400_label, lv_color_hex(COLOR_RAIL), LV_PART_MAIN);
+    lv_obj_center(bus_400_label);
 
     create_card(screen, "120V INVERTER", "-- kW", "Waiting for telemetry", 640, 140, 150, 68, COLOR_BORDER);
     create_card(screen, "240V SPLIT PHASE", "-- kW", "Waiting for telemetry", 640, 220, 150, 68, COLOR_BORDER);

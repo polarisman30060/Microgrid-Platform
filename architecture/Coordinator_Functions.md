@@ -17,11 +17,11 @@ The CAN timings and frame references below follow the working registry and provi
 * Flags a node as `OFFLINE` according to its type-specific deadline: Boost/Solar gateway `500 ms`, Battery/Inverter `1 s`, Generator/Grid/Display `3 s`; Solar children are monitored by their gateway at `500 ms`.
 
 ### 2.2 Startup Sequencing & Contactor Orchestration
-* Enforces strict power-up ordering so downstream stages never draw load before upstream buses are precharged and stabilized:
-  1. Verify `30V 50kHz` Auxiliary Lifeline health and absence of system faults.
-  2. Precharge and close primary `96VDC` Energy Bus via Battery/Storage node(s) (`ΔV ≤ 1.5V`).
-  3. Soft-start and stabilize `380VDC` HV DC inverter link via Boost Converter node(s).
-  4. Enable AC Output module(s) sequentially to prevent simultaneous inrush surges.
+* Enforces strict power-up ordering (see [`System_State_MAchine.md`](./System_State_MAchine.md) Section 3) so downstream stages never draw load before upstream buses are stabilized:
+  1. Verify `AUX_LOGIC_24V` health, manual Safety Re-Arm (`AUX_COIL_24V` / `ESTOP_OK`), and absence of system faults.
+  2. Losslessly soft-start primary `96VDC` Energy Bus (`330 mF`) via Battery DAB node(s).
+  3. Soft-start (`PSM`) and stabilize the isolated `400VDC` (`±200VDC` split-rail, `60 mF`/rail) HV DC inverter link via Boost FB-LLC node(s).
+  4. Enable Time-Master and staggered AC Output Inverter module(s) sequentially to prevent simultaneous inrush surges.
 
 ### 2.3 Power Dispatch, Current Balancing & Bus Trim
 * Aggregates real-time power generation, battery state-of-charge (SoC), and load demand across all modules.

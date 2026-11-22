@@ -47,8 +47,8 @@ The BMS is not directly visible to the Coordinator.
 
 ## Energy Bus
 
-The 96VDC system bus used for energy storage and energy transfer.
+The negative-grounded `96VDC` system bus used for energy storage and energy transfer.
 
 ## Inverter Bus
 
-The 380VDC bus supplying inverter modules.
+The galvanically isolated, earth-referenced `400VDC` (`±200VDC` split-rail) bus supplying inverter modules, with its midpoint (`HV_MID`) bonded to Earth (`PE`) and AC Neutral (`N`).

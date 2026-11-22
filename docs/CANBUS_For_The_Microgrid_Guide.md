@@ -13,7 +13,7 @@ Think of **CANbus** (Controller Area Network) as a shared group text or walkie-t
 ### Why CANbus Works So Well for a Microgrid
 * **Everyone on the Same Segment Hears Everything:** Nodes on one CAN segment receive the same frames. Solar MPPT children sit behind isolated gateway-local segments; their frames are filtered/aggregated upstream, not transparently repeated onto the main bus.
 * **Built-In Priority (No Talking Over Each Other):** Every CAN message starts with a **Message ID number** (`0x001` up to `0x7FF`). **Lower numbers always win.** If a Boost converter tries to send a routine status update (`0x300`) at the exact same microsecond a Battery module screams "EMERGENCY SHORT CIRCUIT!" (`0x001`), the routine message automatically steps aside so the emergency message gets through immediately.
-* **Tough Against Electrical Noise:** Your microgrid switches high voltages (`96VDC` and `380VDC`) and high currents. CANbus sends signals as the *difference* between two twisted wires, which cancels out electrical interference, and every board uses a **galvanic isolator** so high voltage can never zap the logic chips.
+* **Tough Against Electrical Noise:** Your microgrid switches high voltages (`96VDC` and `400VDC`) and high currents. CANbus sends signals as the *difference* between two twisted wires, which cancels out electrical interference, and every board uses a **galvanic isolator** so high voltage can never zap the logic chips.
 * **Classic CAN 2.0B (The Shared Language):** Your Waveshare ESP32-S3 Coordinator screen only speaks **Classic CAN 2.0B** (which sends up to **8 bytes** of data per message at **500,000 bits per second**). Even though your STM32G474 module brains are capable of a newer dialect called "CAN FD," we lock them into **Classic CAN mode** so the Coordinator understands every single word.
 
 ---
@@ -21,8 +21,8 @@ Think of **CANbus** (Controller Area Network) as a shared group text or walkie-t
 ## 2. Meet the Crew (Who Is on the Bus?)
 
 1. **The Coordinator (Waveshare ESP32-S3 Touchscreen):** The "Orchestra Conductor." It watches all the gauges, shows you what is happening on the 7-inch screen and web page, decides when to start the generator or charge batteries, and tells parallel modules how to share work. **Crucial Rule:** The Coordinator *never* does split-second electrical safety—it is too slow for that.
-2. **The Module Brains (STM32G474 Microcontrollers):** The "Bodyguards." Every power module has its own fast STM32 chip. These chips run the high-speed power switching (`40,000` times a second) and watch for danger. If a wire shorts out, the STM32 shuts the power off in **less than 1 microsecond** without asking the Coordinator for permission.
-3. **The 30V 50kHz Lifeline (The Backup Power Cord):** Even when the main `96V` and `380V` power buses are completely turned off, the Battery modules send a safe `30V 50kHz` power signal over a dedicated wire so every STM32 brain and the Coordinator screen stay awake and able to talk.
+2. **The Module Brains (STM32G474 Microcontrollers):** The "Bodyguards." Every power module has its own fast STM32 chip. These chips run the high-speed power switching (`65,000–75,000` times a second on the FB-LLC Boost and DAB Battery converters) and watch for danger. If a wire shorts out, the STM32 shuts the power off in **less than 1 microsecond** without asking the Coordinator for permission.
+3. **The Split `24 VDC` Auxiliary Lifeline (`AUX_LOGIC_24V` + `AUX_COIL_24V`):** Even when the main `96V` and `400V` power buses are completely turned off (or E-Stop is pressed!), the Battery modules' diode-OR'd isolated `24 VDC` supplies keep `AUX_LOGIC_24V` alive so every STM32 brain and the Coordinator screen stay awake to talk and log faults, while `AUX_COIL_24V` passes through the hardwired E-Stop Safety Relay to power contactors.
 
 ---
 
@@ -49,22 +49,22 @@ Here is a play-by-play look at the exact CAN messages flying back and forth duri
 ### Event 1: Cold "Black Start" (Waking Up from Completely Dead)
 Imagine the grid is down, it's pitch black outside, and the whole house is off. You walk up and press the start button on a Battery module.
 
-1. **Lifeline Wakes Up:** The Battery module turns on its internal `30V 50kHz` auxiliary power supply. Suddenly, the Coordinator screen and every STM32 board in the system get power and boot up—even though the main `96V` and `380V` buses are still at `0 Volts`.
+1. **Lifeline Wakes Up:** The Battery module turns on its internal isolated `48V → 24V` auxiliary supply (`AUX_LOGIC_24V`). Suddenly, the Coordinator screen and every STM32 board in the system get power and boot up—even though the main `96V` and `400V` buses are still at `0 Volts` and `AUX_COIL_24V` is still locked out until you press the physical **Safety Re-Arm** button.
 2. **Roll Call (`0x600+` & `0x700+`):** Nodes send identity at startup/on request. Heartbeats are type-specific: Boost/Solar child `100 ms`, Battery/Inverter `250 ms`, and Generator/Grid/Display `1 s`.
 3. **Safety Check:** The Coordinator checks its saved checklist:
    * *Are all "Required" modules present?* Yes.
    * *Did two modules accidentally get programmed with the same ID number?* The Coordinator checks the serial numbers. No duplicates!
 4. **Step-by-Step Energizing (`0x120+` & `0x740+`):** You tap **Start System** on the touchscreen. The Coordinator turns things on in strict upstream-to-downstream order:
    * **Step A (96V Bus):** Coordinator sends Battery 0 `CMD_NODE_CONTROL` (`0x121`); Battery 0 replies to a state-changing command on ACK ID `0x760`.
-   * **Step B (380V Bus):** Next, the Coordinator tells Boost 0 on `0x126`; Boost 0 replies on ACK ID `0x765`.
+   * **Step B (400V ±200V Split Bus):** Next, the Coordinator tells Boost 0 on `0x126`; Boost 0 replies on ACK ID `0x765` and soft-starts the isolated `400V` (`±200V`) split bus.
    * **Step C (House AC Power):** Finally, the Coordinator tells the AC Inverter modules: *"Turn on 120V/240V output!"* One by one, the inverters close their output breakers, and your lights come on.
 
 ---
 
 ### Event 2: Big Appliance Surge (Current Balancing Tokens in Action)
-Suppose you have **two 10kVA Boost converters** working together to feed the `380V` bus, and your central air conditioner compressor kicks on.
+Suppose you have **two 10kW FB-LLC Boost converters** working together to feed the `400V` (`±200V`) split bus, and your central air conditioner compressor kicks on.
 
-1. **Instant Local Reaction (Microseconds):** Before the Coordinator even knows the AC turned on, the big capacitor banks on the `380V` bus absorb the first split-second of shock, and both Boost converters' local STM32 chips instantly push more current to hold `380V`.
+1. **Instant Local Reaction (Microseconds):** Before the Coordinator even knows the AC turned on, the split capacitor banks on the `400V` bus absorb the first split-second of shock, and both Boost converters' local STM32 chips instantly push more current to hold `400V` (`±200V`).
 2. **Telemetry Arrives (`0x300` & `0x301`):** Within **50 ms**, both Boost converters report their numbers on the main bus. The Coordinator notices Boost #1 is carrying `60 Amps` while Boost #2 is only carrying `40 Amps` (total `100 Amps`).
 3. **Current Balancing Tokens (`0x120+` only when needed):** If active parallel balancing requires it, the Coordinator sends updates at a provisional **20 ms** cadence:
    * To Boost #1: *"Your target share is `50.0 Amps`."*
@@ -91,7 +91,7 @@ What happens if you accidentally yank the CAN cable out of the Waveshare touchsc
 2. **No Blackout! Safe Autopilot:** Instead of shutting off your house, every module switches into **`DEGRADED_AUTONOMOUS`** mode using pre-agreed rules:
    * **Battery Modules:** Keep holding the `96V` bus steady using their last known safe limits.
    * **Solar MPPTs:** Keep harvesting sunshine, automatically tapering back if the `96V` bus approaches `100.8V`.
-   * **Boost Converters (Primary vs. Secondary):** Without the Coordinator's `20 ms` balancing tokens, two parallel Boost converters might fight over who controls the `380V` bus. So **Boost #0 (Designated Primary)** keeps regulating `380V` on its own, while **Boost #1 (Secondary)** politely steps into Standby. Your house stays powered!
+   * **Boost Converters (Primary vs. Secondary):** Without the Coordinator's `20 ms` balancing tokens, two parallel Boost converters might fight over who controls the `400V` bus. So **Boost #0 (Designated Primary)** keeps regulating `400V` (`±200V`) on its own, while **Boost #1 (Secondary)** politely steps into Standby. Your house stays powered!
    * **Generator & Grid Charger:** Since nobody is supervising them, they safely ramp down and disconnect so they don't overcharge the batteries.
 3. **Seamless Recovery:** As soon as you plug the CAN cable back in and `COORD_HEARTBEAT` (`0x100`) reappears, the Coordinator brings Secondary Boost #1 back online and resumes normal balanced operation.
 

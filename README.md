@@ -27,6 +27,15 @@ The Coordinator firmware transmits its normal heartbeat and parses Battery 0 ide
 ## Documentation
 
 - [Project engineering punchlist](docs/Project_Punchlist.md)
+- [System safety, auxiliary lifeline, fusing & E-Stop architecture](docs/System_Safety_and_Protection_Architecture.md)
+- [DC bus capacitance, soft-start pre-charge & autonomous droop spec](docs/Bus_Capacitance_Droop_and_Transient_Spec.md)
+- [10 kW 2-phase FB-LLC Boost converter architecture & design](hardware/boost_converter/Boost_Converter_Architecture.md)
+  - [Hardware baseline summary](hardware/boost_converter/Boost_Converter_Hardware.md)
+  - [Mechanical, heatsink & laminated copper busbar blueprint](hardware/boost_converter/Boost_Converter_Mechanical_and_Power.md)
+  - [2-layer signal & gate-drive PCB schematic spec](hardware/boost_converter/Boost_Converter_Signal_PCB_Schematic.md)
+  - [DIY transformer (`U93/76/30`) & resonant inductor (`E55`) build guide](hardware/boost_converter/Boost_Converter_Magnetics_Build_Guide.md)
+  - [Boost converter DigiKey-sourced BOM (Qty 1 & Qty 10)](hardware/boost_converter/Boost_Converter_BOM.md)
+- [Battery galvanic isolation & DAB topology study](hardware/Battery_Isolation_Topology_Study.md)
 - [Software design constraints](docs/Software_Design_Constraints.md)
 - [Coordinator CAN implementation guide](docs/Coordinator_CAN_Implementation.md)
 - [PC microgrid simulator requirements](docs/Microgrid_Simulator_Requirements.md)

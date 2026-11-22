@@ -22,16 +22,16 @@ The compact, inaccessible solar MPPT controller is outside the scope of this com
 ## System Partition and Power
 
 ```text
-Battery module
-  30 V, 50 kHz auxiliary control lifeline
+Battery module(s)
+  Isolated 48 V -> 24.0 VDC + Ideal-Diode OR (AUX_LOGIC_24V / AUX_COIL_24V)
            |
            v
-Host module: rectification, smoothing, regulation and isolation
+Host module: per-tap fuse/eFuse (+ optional 24:24 V isolated DC/DC brick)
            |
-           | isolated 24 VDC
+           | regulated 24.0 VDC (22.8 - 25.2 V normal, clamped < 30 V)
            v
 STM32 control card
-  input protection --> local conversion --> 3.3 V control/display
+  input protection --> local conversion --> 5 V / 3.3 V control/display
                    \-> isolated DC/DC --> isolated CAN-side supply
 
 Host power board <--> PWM, sensing, faults and control <--> STM32
@@ -40,9 +40,9 @@ STM32 <--> directly mounted SPI LCD and keypad
 STM32 <--> isolated CAN transceiver <--> system CAN bus
 ```
 
-The battery module generates the 30 V, 50 kHz control-power lifeline. The host module rectifies and smooths this source and supplies regulated, isolated 24 VDC to the control card. The card generates all voltages below 24 VDC required by its own circuitry. Its CAN-side power is separately isolated from the control domain by a DC/DC converter on the card.
+The Battery Modules generate the regulated, isolated `24.0 VDC` auxiliary backbone (`AUX_LOGIC_24V` always-on lifeline + E-Stop-interlocked `AUX_COIL_24V`; see [`../../docs/System_Safety_and_Protection_Architecture.md`](../../docs/System_Safety_and_Protection_Architecture.md)). Each host module taps `AUX_LOGIC_24V` through a local fast fuse/eFuse (and optional `24:24 V` isolated DC/DC brick if per-card `GND_CTRL` isolation is desired) and supplies `24.0 VDC` (`22.8–25.2 V` normal) to the control card. The card generates all voltages below `24 VDC` locally, with CAN-side power separately isolated on the card.
 
-The lifeline waveform, meaning of the 30 V rating, source limits, and host supply implementation require definition; do not infer rectifier or regulator ratings from the nominal value. The host must provide control power during the system's intended fault and black-start conditions. A local module fault must not shut down the common lifeline.
+A local module fault or E-Stop must never shut down `AUX_LOGIC_24V` so the Coordinator and STM32 cards remain online to log faults during black-start and emergency conditions.
 
 ## Assumptions and Constraints
 
@@ -59,7 +59,7 @@ The lifeline waveform, meaning of the 30 V rating, source limits, and host suppl
 ### Controller and Host Interface
 
 - Provide the HRTIM PWM outputs, analog inputs, hardware fault inputs, enable/control outputs, and other I/O needed by the supported host modules. Establish the common signal inventory and pin allocation before fixing the connector.
-- Validate STM32 alternate functions, simultaneous ADC resources, timer channels, fault routing, and pin conflicts against every supported host, including the five-phase boost and inverter designs. No particular STM32 pin assignment is approved yet.
+- Validate STM32 alternate functions, simultaneous ADC resources, timer channels, fault routing, and pin conflicts against every supported host, including the 2-phase FB-LLC boost, isolated DAB battery, half-bridge inverter, generator, and isolated utility-tie designs. No particular STM32 pin assignment is approved yet.
 - Inventory the supported modules' required simultaneous functions before allocating pins. Bring remaining usable, unreserved GPIO out to the host interface; supply, ground, reset, oscillator, and other dedicated or required support pins are not general-purpose I/O.
 - Define each connector signal's direction, voltage range, reference, current capability, protection, default state, and timing. Define analog accuracy and source-impedance requirements as part of the interface.
 - Place gate drivers, contactor coil drivers, power-stage sensors, and any required isolation or signal conditioning on the host unless a later interface decision explicitly assigns them to the card. Do not connect power-stage voltages or 24 V coil loads directly to MCU pins.
