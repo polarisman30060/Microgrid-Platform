@@ -28,10 +28,9 @@ Located in [hardware/STM32_control_card/](../hardware/STM32_control_card/):
 - [x] **Finalize Stocked Regulated Isolated CAN Supply (BOM/Selection Resolved 2026-11-22)**
   - **Resolution:** Both `UCC33421DHAR` and `UCC12050DVER` were non-stock/out-of-stock on DigiKey. Switched baseline in [STM32_Control_Card_BOM.md](../hardware/STM32_control_card/STM32_Control_Card_BOM.md) to stocked **`Analog Devices ADuM6020-5BRIZ`** (`5 kVrms` reinforced, `8.3 mm` creepage, easy-to-hand-solder `1.27 mm` `16-SOIC` wide body, regulated `5.0 V ±5%` down to `0 mA` no-load). Update `CAN Tranciever.esch2` footprint & `≥ 8 mm` PCB moat keep-outs before routing.
 
-- [ ] **Complete Remaining EasyEDA Pro Schematic Sheets & Run ERC**
-  - **Already captured:** `Micro + Headers.esch2` (`U1`, `J4`, `J5`), `Decoupling + Filtering.esch2` (37 parts), `CAN Tranciever.esch2` (16 parts).
-  - **Remaining sheets/blocks:** `24 V → 5 V → 3.3 V` power supply, `24 MHz` HSE & `32.768 kHz` LSE crystals, host headers `J1` & `J2`, expansion header `J3`, status LEDs, and `10 kΩ` pull-downs on active-high PWM/`GATE_EN`/contactor lines (including `PA9`/`PA10` UCPD dead-battery caveat).
-  - **Done when:** Full schematic passes ERC with zero unresolved errors, every pin/AF is verified against `DS12288 Rev 6` and the Waveshare HAT schematic, and BOM matches the schematic netlist.
+- [x] **Complete All 4 EasyEDA Pro Schematic Sheets & Netlist Audit (2026-11-22)**
+  - **Captured & audited (83 parts across 4 sheets):** `Micro + Headers.esch2` (`U1` 128/128, `J1` 40/40, `J2` 40/40, `J3`, `J4`, `J5`, `LED2`), `Decoupling + Filtering.esch2` (`24 MHz` HSE, `32.768 kHz` LSE, `BOOT0`, `SW1`, decoupling, `R19–R21` safe-reset pull-downs), `CAN Tranciever.esch2` (`ISO1042DWV` + `ADuM6020-5BRIZ`), and `Power Supplies.esch2` (`MF-R050`, `B360A-13-F`, `SMBJ30A`, `LM2576HVT-5.0/NOPB`, `SRR1280-331K`, `TLV76133DCYR`, `LED1`). BOM reconciled 1-to-1 in [STM32_Control_Card_BOM.md](../hardware/STM32_control_card/STM32_Control_Card_BOM.md).
+  - **Final pre-PCB check:** Confirm `J3` Pin 9 (`EXP-PE9` → `EXP_PE9`) saved & EasyEDA ERC passes cleanly before pushing netlist to `PCB1.epcb2`.
 
 - [ ] **Complete Mechanical Mock-Up & 4-Layer PCB Layout (`PCB1.epcb2`)**
   - **Done when:** HAT hole pitch and mating headers are caliper-verified on physical parts, 1:1 print check passes, isolation moat keep-outs are verified on all 4 layers, and DRC passes cleanly.

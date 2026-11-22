@@ -125,12 +125,24 @@ Connector: **`SBH11-PBPC-D20-ST-BK`** (2×20, 2.54 mm keyed shrouded male box he
 | **37** | `GPIO_PE2` | 1 | `PE2` | GPIO / `TIM3_CH1` / `SPI4_SCK` | **38** | `GPIO_PB9` | 124 | `PB9` | GPIO / `TIM17_CH1` / `I2C1_SDA` |
 | **39** | `GPIO_PA15` | 99 | `PA15` | GPIO / `HRTIM1_FLT2` / `TIM2_CH1` | **40** | `GPIO_PB11` | 65 | `PB11` | GPIO / `HRTIM1_FLT4` / `ADC12_IN14` |
 
-### Expansion Header `J3` (2×12, 2.54 mm Unshrouded Header — Remaining 19 MCU Pins)
+### Expansion Header `J3` (2×12, 2.54 mm Unshrouded Header — Remaining 19 MCU Pins + 5 GND)
 
-Exposes all remaining usable LQFP128 pins so zero MCU pins are stranded:
-- **ADC / OpAmp / Comparator capable (13 pins):** `PC4` (37), `PC5` (38), `PB2` (41), `PE7` (53), `PE8` (54), `PE9` (55), `PE10` (56), `PE11` (57), `PE12` (58), `PE13` (59), `PE15` (61), `PD10` (72), `PD11` (73)
-- **Digital / Timer / Backup GPIO (6 pins):** `PF11` (48), `PD3` (113), `PB4` (119), `PB5` (120), `PB7` (122), `PC13` (7 — Note: 3 mA max sink/source per Footnote 2)
-- **Grounds (5 pins):** 5× `GND_CTRL`
+Connector: **`PRPC012DAAN-RC`** (`2×12`, `2.54 mm`). Ordered monotonically along the LQFP128 perimeter (`37 → 122`) with `TIM1` complementary channels grouped contiguously on pins `7–14` and `5× GND_CTRL` guard returns so zero usable MCU pins are stranded:
+
+| J3 Pin | Signal Name | LQFP128 Pin | STM32 Pin | Key Alternate Functions | J3 Pin | Signal Name | LQFP128 Pin | STM32 Pin | Key Alternate Functions |
+| ---: | --- | ---: | --- | --- | ---: | --- | ---: | --- | --- |
+| **1** | `GND_CTRL` | — | — | Analog/Expansion GND | **2** | `GND_CTRL` | — | — | Analog/Expansion GND |
+| **3** | `EXP_PC4` | 37 | `PC4` | `ADC2_IN5` / `OPAMP2_VOUT` | **4** | `EXP_PC5` | 38 | `PC5` | `ADC2_IN11` / `OPAMP1_VINM` |
+| **5** | `EXP_PB2` | 41 | `PB2` | `ADC2_IN12` / `OPAMP3_VINM` | **6** | `EXP_PF11` | 48 | `PF11` | GPIO / `TIM20_ETR` |
+| **7** | `EXP_PE7` | 53 | `PE7` | `ADC3_IN4` / `TIM1_ETR` | **8** | `EXP_PE8` | 54 | `PE8` | `ADC345_IN6` / `TIM1_CH1N` |
+| **9** | `EXP_PE9` | 55 | `PE9` | `ADC3_IN2` / `TIM1_CH1` | **10** | `EXP_PE10` | 56 | `PE10` | `ADC345_IN14` / `TIM1_CH2N` |
+| **11** | `EXP_PE11` | 57 | `PE11` | `ADC345_IN15` / `TIM1_CH2` | **12** | `EXP_PE12` | 58 | `PE12` | `ADC345_IN16` / `TIM1_CH3N` |
+| **13** | `EXP_PE13` | 59 | `PE13` | `ADC345_IN3` / `TIM1_CH3` | **14** | `EXP_PE15` | 61 | `PE15` | `ADC4_IN2` / `TIM1_BKIN` |
+| **15** | `GND_CTRL` | — | — | Mid-header guard GND | **16** | `GND_CTRL` | — | — | Mid-header guard GND |
+| **17** | `EXP_PD10` | 72 | `PD10` | `ADC345_IN7` / `USART3_CK` | **18** | `EXP_PD11` | 73 | `PD11` | `ADC345_IN8` / `USART3_CTS` |
+| **19** | `EXP_PD3` | 113 | `PD3` | `USART2_CTS` / `TIM2_CH1` | **20** | `EXP_PB4` | 119 | `PB4` | `TIM3_CH1` / `TIM16_CH1` *(UCPD `PA10`)* |
+| **21** | `EXP_PB5` | 120 | `PB5` | `TIM3_CH2` / `FDCAN2_RX` | **22** | `EXP_PB7` | 122 | `PB7` | `I2C1_SDA` / `USART1_RX` |
+| **23** | `EXP_PC13` | 7 | `PC13` | `RTC_TAMP1` / GPIO *(3 mA max)* | **24** | `GND_CTRL` | — | — | End GND return |
 
 ---
 
